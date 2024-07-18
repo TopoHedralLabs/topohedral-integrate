@@ -1,0 +1,2 @@
+[registries]
+cloudsmith = { index = "env:CARGO_REGISTRIES_CLOUDSMITH_INDEX" }

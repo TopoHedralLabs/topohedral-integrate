@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb", 
+            "request": "launch",
+            "name": "topohedral-integrate Unit Tests",
+            "cargo": {
+                "args": [
+                    "test", 
+                    "--lib",
+                    "--no-run",
+                    "--package=topohedral-integrate"
+                ], 
+                "filter": {
+                    "name": "topohedral-integrate",
+                    "kind": "lib",
+                }
+            },
+            "args": [], 
+            "cwd": "${workspaceFolder}/topohedral-integrate", 
+            "sourceLanguages": ["rust"]
+        }
+    ]
+}
