@@ -1,6 +1,20 @@
+//! This module contains the implementation of Gauss quadrature rules.
+//!
+//! Gauss quadrature is a numerical integration method that approximates the integral of a function
+//! using a weighted sum of function values at specific points. These points are the roots of a 
+//! family of orthogonal polynomials.
+//--------------------------------------------------------------------------------------------------
+
+//{{{ crate imports 
+//}}}
+//{{{ std imports 
+//}}}
+//{{{ dep imports 
 use nalgebra as na;
+//}}}
+//--------------------------------------------------------------------------------------------------
 
-
+//{{{ enum:   GaussQuadType
 /// An enumeration of supported Gauss quadrature rules. Each member corresponds to the orthogonal 
 /// polynomial family used for the rule.
 ///
@@ -12,7 +26,6 @@ pub enum GaussQuadType
     Legendre,
     Lobatto,
 }
-
 
 impl GaussQuadType {
 
@@ -33,7 +46,8 @@ impl GaussQuadType {
         }
     }
 }
-
+//}}}
+//{{{ struct: GuassQuadSet
 /// Struct to represent a collection of Gauss quadrature rules up to a given order.
 pub struct GuassQuadSet
 {
@@ -140,7 +154,8 @@ impl GuassQuadSet
     }
 }
 //..................................................................................................
-
+//}}}
+//{{{ struct: GaussQuad
 /// Represent a specific quadrature rule
 pub struct GaussQuad 
 {
@@ -187,8 +202,8 @@ impl GaussQuad
         sum
     }
 }
-
-
+//}}}
+//{{{ fun:    golub_welsch
 /// Computes the Golub-Welsch algorithm to generate Gauss quadrature points and weights for numerical integration.
 ///
 /// Takes the number of quadrature points, quadrature type, and a recurrence function. The recurrence function takes
@@ -254,7 +269,9 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     let (qpoints_final, qweights_final): (Vec<f64>, Vec<f64>) = combined.iter().cloned().unzip();
     (qpoints_final, qweights_final)
 }
-
+//..................................................................................................
+//}}}
+//{{{ fun:    legendre_recursion_coeffs
 /// Computes the recurrence coefficients for the nth Legendre polynomial using the recurrence relation.
 ///
 /// Returns a tuple containing the coefficients (a, b, c) for the i'th polynomial.
@@ -266,7 +283,8 @@ fn legendre_recursion_coeffs(i: usize) -> (f64, f64, f64)
     let ci = i_f64 / (i_f64 + 1.0);
     (ai, bi, ci)
 }
-
+//}}}
+//{{{ fun:    lobatto_recursion_coeffs
 /// Computes the recurrence coefficients `ai`, `bi`, and `ci` for
 /// the Lobatto quadrature rule at index `i`.
 ///
@@ -279,7 +297,8 @@ fn lobatto_recursion_coeffs(i: usize) -> (f64, f64, f64)
     let ci = ((i_f64 + 1.0) * (i_f64 + 2.0)) / ((i_f64 + 3.0) * (i_f64 + 1.0));
     (ai, bi, ci)
 }
-
+//}}}
+//{{{ fun:    legendre
 fn legendre(
     n: usize,
     x: f64,
@@ -299,13 +318,14 @@ fn legendre(
     }
     leg_n
 }
+//}}}
 
-
-
-
+//-------------------------------------------------------------------------------------------------
+//{{{ mod: tests
 #[cfg(test)]
-mod test
+mod tests
 {
+  
     use super::*;
     use std::fs;
     use approx::{assert_relative_eq};
@@ -582,3 +602,4 @@ mod test
     poly_integral_lobatto_test!(poly_integral_lobatto_test25, P6, 5);
     poly_integral_lobatto_test!(poly_integral_lobatto_test26, P7, 5);
 }
+//}}}

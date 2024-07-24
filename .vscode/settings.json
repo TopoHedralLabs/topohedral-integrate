@@ -1,4 +1,6 @@
 {
     "rust-analyzer.showUnlinkedFileNotification": false,
-    "rust-analyzer.debug.engine": "vadimcn.vscode-lldb"
+    "rust-analyzer.debug.engine": "vadimcn.vscode-lldb", 
+    "editor.foldingStrategy": "auto", 
+    "editor.defaultFoldingRangeProvider": "TopoHedralLabs.topohedral-vscode"
 }
