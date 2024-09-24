@@ -47,6 +47,7 @@ impl GaussQuadType {
     }
 }
 //}}}
+//{{{ collection: GuassQuadSet
 //{{{ struct: GuassQuadSet
 /// Struct to represent a collection of Gauss quadrature rules up to a given order.
 pub struct GuassQuadSet
@@ -64,7 +65,8 @@ pub struct GuassQuadSet
     /// quadrature weights, the nqp-point rule is in `wieghts[nqp - nqp_min]`
     weights: Vec<Vec<f64>>,
 }
-
+//}}}
+//{{{ impl: GuassQuadSet
 impl GuassQuadSet
 {
     pub fn new(
@@ -153,27 +155,30 @@ impl GuassQuadSet
         GaussQuad::new(self.gauss_type, points_nqp, weights_nqp)
     }
 }
-//..................................................................................................
 //}}}
+//}}}
+//{{{ collection: GaussQuad
 //{{{ struct: GaussQuad
-/// Represent a specific quadrature rule
+/// This struct represents a specific quadrature rule, meaning a set of quadrature points and 
+/// a set of assocciated weights.
+#[derive(Debug, Clone)]
 pub struct GaussQuad 
 {
     /// underlying orthogonal polynomial family
-    gauss_type: GaussQuadType,
+    pub gauss_type: GaussQuadType,
     /// number of quadrature points
-    nqp: usize,
+    pub nqp: usize,
     /// quadrature points
-    points: Vec<f64>,
+    pub points: Vec<f64>,
     /// quadrature weights
-    weights: Vec<f64>,
+    pub weights: Vec<f64>,
 }
-
-
+//}}}
+//{{{ impl: GaussQuad
 impl GaussQuad
 {
 
-    pub fn new(gauss_type: GaussQuadType, points: Vec<f64>, weights: Vec<f64>) -> Self
+    fn new(gauss_type: GaussQuadType, points: Vec<f64>, weights: Vec<f64>) -> Self
     {
         debug_assert_eq!(points.len(), weights.len());
         let nqp = points.len();
@@ -197,11 +202,12 @@ impl GaussQuad
         {
             let xi = c + ((d - c) / (b - a)) * (self.points[i] - a);
             let wi = self.weights[i];
-            sum += (jac * wi * f(xi));
+            sum +=  jac * wi * f(xi);
         }
         sum
     }
 }
+//}}}
 //}}}
 //{{{ fun:    golub_welsch
 /// Computes the Golub-Welsch algorithm to generate Gauss quadrature points and weights for numerical integration.
