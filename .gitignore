@@ -1,0 +1,8 @@
+target/
+archive/
+misc/
+venv/
+Cargo.lock
+.DS_Store
+
+__pycache__/
