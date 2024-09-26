@@ -14,7 +14,7 @@ use nalgebra as na;
 //}}}
 //--------------------------------------------------------------------------------------------------
 
-//{{{ enum:   GaussQuadType
+//{{{ enum: GaussQuadType
 /// An enumeration of supported Gauss quadrature rules. Each member corresponds to the orthogonal 
 /// polynomial family used for the rule.
 ///
@@ -152,7 +152,7 @@ impl GuassQuadSet
         debug_assert!(nqp >= self.min_nqp && nqp <= self.max_nqp);
         let points_nqp = self.points[nqp - self.min_nqp].clone();
         let weights_nqp = self.weights[nqp - self.min_nqp].clone();
-        GaussQuad::new(self.gauss_type, points_nqp, weights_nqp)
+        GaussQuad::from_points_weights(self.gauss_type, points_nqp, weights_nqp)
     }
 }
 //}}}
@@ -178,7 +178,7 @@ pub struct GaussQuad
 impl GaussQuad
 {
 
-    fn new(gauss_type: GaussQuadType, points: Vec<f64>, weights: Vec<f64>) -> Self
+    fn from_points_weights(gauss_type: GaussQuadType, points: Vec<f64>, weights: Vec<f64>) -> Self
     {
         debug_assert_eq!(points.len(), weights.len());
         let nqp = points.len();
@@ -190,14 +190,40 @@ impl GaussQuad
         }
     }
 
-    pub fn integrate<F: Fn(f64) -> f64>(&self, f: F, range: (f64, f64)) -> f64
+    pub fn new(gauss_type: GaussQuadType, order: usize) -> Self
+    {
+        let nqp = match gauss_type
+        {
+            GaussQuadType::Legendre => (order + 1) / 2,
+            GaussQuadType::Lobatto => (order + 3) / 2, 
+        };
+
+        let (points, weights) = match gauss_type
+        {
+            GaussQuadType::Legendre =>
+            {
+                let (points, weights) = golub_welsch(nqp, gauss_type, legendre_recursion_coeffs);
+                (points, weights)
+            }
+            GaussQuadType::Lobatto =>
+            {
+                let (points, weights) = golub_welsch(nqp, gauss_type, lobatto_recursion_coeffs);
+                (points, weights)
+            }
+        };
+
+        let out = Self::from_points_weights(gauss_type, points, weights);
+        out
+    }
+
+    pub fn integrate<F: Fn(f64) -> f64>(&self, f: &F, range: (f64, f64)) -> f64
     {
         debug_assert!(range.0 < range.1);
 
         let (a, b) = self.gauss_type.range();
         let (c, d) = range;
         let mut sum = 0.0;
-        let jac = ((d - c) / (b - a));
+        let jac = (d - c) / (b - a);
         for i in 0..self.nqp
         {
             let xi = c + ((d - c) / (b - a)) * (self.points[i] - a);
@@ -515,7 +541,7 @@ mod tests
 
                 let leg = GuassQuadSet::new(GaussQuadType::Legendre, 90);
                 let leg6 = leg.gauss_quad_from_nqp($nqp);
-                let integral2 = leg6.integrate(pol, range);
+                let integral2 = leg6.integrate(&pol, range);
 
                 assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
             }
@@ -576,7 +602,7 @@ mod tests
 
                 let lob = GuassQuadSet::new(GaussQuadType::Lobatto, 90);
                 let lob_nqp = lob.gauss_quad_from_nqp($nqp);
-                let integral2 = lob_nqp.integrate(pol, range);
+                let integral2 = lob_nqp.integrate(&pol, range);
 
                 assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
             }
