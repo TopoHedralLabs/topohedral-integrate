@@ -33,7 +33,7 @@ pub mod d1 {
     /// integration, such as the Gaussian quadrature type, order, integration bounds,
     /// and optional subdivision points.
     pub struct FixedQuadOpts {
-        /// The Gaussian quadrature type to use for each dimension.
+        /// The Gaussian quadrature type
         pub gauss_type: GaussQuadType,
         /// The order of the Gaussian quadrature to use for each dimension.
         pub order: usize,
@@ -47,12 +47,20 @@ pub mod d1 {
     pub fn fixed_quad<F: Fn(f64) -> f64>(f: &F, opts: &FixedQuadOpts) -> f64 
     {
         let quad_rule = FixedQuad::new(opts);
-        quad_rule.integrate(f)
+        quad_rule.integrate(f, None)
     }
     //}}}
     //{{{ struct: FixedQuad
+    #[derive(Debug)]
     pub struct FixedQuad {
+        /// The set of points and weights for the fixed quadrature rule.
         pub points_weights: Vec<f64>,
+        /// The underlying Gaussian quadrature type
+        pub gauss_type: GaussQuadType,
+        /// The order of the Gaussian quadrature to use for each dimension.
+        pub order: usize,
+        /// The bounds of the integration region.
+        pub bounds: (f64, f64),
     }
     //}}}
     //{{{ impl: FixedQuad
@@ -139,20 +147,45 @@ pub mod d1 {
             //{{{ ret
             Self {
                 points_weights,
+                gauss_type: gauss_rule.gauss_type,
+                order: opts.order,
+                bounds: opts.bounds,
             }
             //}}}
         }
         //}}}
         //{{{ fun: integrate
-        pub fn integrate<F: Fn(f64) -> f64>(&self, f: &F) -> f64 {
+        pub fn integrate<F: Fn(f64) -> f64>(&self, f: &F, bounds: Option<(f64, f64)>) -> f64 {
             let mut integral = 0.0;
-            for i in 0..self.points_weights.len() / 2 {
-                let xi = self.points_weights[2 * i];
-                let wi = self.points_weights[2 * i + 1];
-                integral += f(xi) * wi;
+
+            match bounds {
+                Some(bounds) => {
+                    let (a, b) = self.bounds;
+                    let (c, d) = bounds;
+                    let jac = (d - c) / (b - a);
+
+                    for i in 0..self.points_weights.len() / 2 {
+                        let xi = c + jac * (self.points_weights[2 * i] - a);
+                        let wi = self.points_weights[2 * i + 1];
+                        integral += f(xi) * wi;
+                    }
+                    integral *= jac;
+                }
+                None => {
+                    for i in 0..self.points_weights.len() / 2 {
+                        let xi = self.points_weights[2 * i];
+                        let wi = self.points_weights[2 * i + 1];
+                        integral += f(xi) * wi;
+                    }
+                }
             }
             integral
         }
+        //}}}
+        //{{{ fun: nqp
+        pub fn nqp(&self) -> usize {
+            self.points_weights.len() / 2
+        }   
         //}}}
     }
     //}}}
