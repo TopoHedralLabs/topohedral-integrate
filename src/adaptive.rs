@@ -8,6 +8,7 @@
 
 //{{{ crate imports
 use crate::gauss::{GaussQuad, GaussQuadType};
+use crate::fixed as fi;
 use crate::common::{OptionsStruct, OptionsError, append_reason};
 //}}}
 //{{{ std imports
@@ -49,9 +50,9 @@ pub mod d1 {
         /// bounds of the integral
         pub bounds: (f64, f64),
         /// Low-order Gauss quadrature rule
-        pub gauss_rule_low: GaussQuad,
+        pub fixed_rule_low: fi::d1::FixedQuad,
         /// High-order Gauss quadrature rule
-        pub gauss_rule_high: GaussQuad,
+        pub fixed_rule_high: fi::d1::FixedQuad,
         /// exit-tolerance for the integral
         pub tol: f64,
         /// Maximum number of subdivisions
@@ -79,12 +80,12 @@ pub mod d1 {
                 ok = false;
             }
 
-            if self.gauss_rule_low.gauss_type != GaussQuadType::Legendre{
+            if self.fixed_rule_low.gauss_type != GaussQuadType::Legendre{
                 append_reason(&mut err, "Gauss rule type invalid, must be Gauss-Legendre");
                 ok = false;
             }
 
-            if self.gauss_rule_low.nqp >= self.gauss_rule_high.nqp {
+            if self.fixed_rule_low.nqp() >= self.fixed_rule_high.nqp() {
                 append_reason(&mut err, "Gauss rule order mismatch, low order greater than high order");
                 ok = false;
             }
@@ -145,12 +146,12 @@ pub mod d1 {
     /// Computes the error estimate for the integral of a function $f$
     fn error_estimate<F: Fn(f64) -> f64>(
         f: &F,
-        gauss_rule_low: &GaussQuad,
-        gauss_rule_high: &GaussQuad,
+        fixed_rule_low: &fi::d1::FixedQuad,
+        fixed_rule_high: &fi::d1::FixedQuad,
         bounds: (f64, f64),
     ) -> (f64, f64) {
-        let integral_low = gauss_rule_low.integrate(f, bounds);
-        let integral_high = gauss_rule_high.integrate(f, bounds);
+        let integral_low = fixed_rule_low.integrate(f, Some(bounds));
+        let integral_high = fixed_rule_high.integrate(f, Some(bounds));
         let err = (integral_high - integral_low).abs();
         (integral_low, err)
     }
@@ -184,14 +185,25 @@ pub mod d1 {
     /// In this example we integrate the function $f(x) = 7x^4 - 2x^3 - 11x^2 + 15x + 1$ over the 
     /// inteval $[-3, 10]$. We use Gauss-Legendre qadrature rules of order 10 and 30, respectively.
     /// ```
+    /// use topohedral_integrate::fixed as fi;
     /// use topohedral_integrate::adaptive::d1; 
     /// use topohedral_integrate::gauss::{GaussQuad, GaussQuadType};
     /// 
     /// let f =  |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
     /// let opts = d1::AdaptiveQuadOpts {
     ///     bounds: (-3.0, 10.0), 
-    ///     gauss_rule_low: GaussQuad::new(GaussQuadType::Legendre, 10),
-    ///     gauss_rule_high: GaussQuad::new(GaussQuadType::Legendre, 30), 
+    ///         fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+    ///         gauss_type: GaussQuadType::Legendre,
+    ///         order: 10, 
+    ///         bounds: (-1.0, 1.0), 
+    ///         subdiv: None,    
+    ///     }),
+    ///     fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+    ///         gauss_type: GaussQuadType::Legendre,
+    ///         order: 30, 
+    ///         bounds: (-1.0, 1.0), 
+    ///         subdiv:None,    
+    ///     }),
     ///     tol: 1e-5,
     ///     max_subdiv: 1000,
     ///     init_subdiv: None,
@@ -221,7 +233,7 @@ pub mod d1 {
         let mut marked = Vec::<usize>::new();
         marked.reserve(100);
         let mut num_fn_eval = 0;
-        let nqp = opts.gauss_rule_low.nqp + opts.gauss_rule_high.nqp;
+        let nqp = opts.fixed_rule_low.nqp() + opts.fixed_rule_high.nqp();
         //}}}
         //{{{ com: perform adaptive quadrature
         let mut iter = 0;
@@ -241,7 +253,7 @@ pub mod d1 {
                 let bounds = (interval[0], interval[1]);
                 if interval[2] == non_val {
                     let (integral, err_est) =
-                        error_estimate(f, &opts.gauss_rule_low, &opts.gauss_rule_high, bounds);
+                        error_estimate(f, &opts.fixed_rule_low, &opts.fixed_rule_high, bounds);
                     //{{{ trace
                     debug!("integral = {}, err_est = {}", integral, err_est);
                     //}}}
@@ -349,8 +361,18 @@ mod tests {
     fn test_adaptive_quad_opts_1d() {
         let mut opts = d1::AdaptiveQuadOpts {
             bounds: (1.0, 0.0),
-            gauss_rule_low: GaussQuad::new(GaussQuadType::Legendre, 30),
-            gauss_rule_high: GaussQuad::new(GaussQuadType::Legendre, 10),
+            fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 30, 
+                bounds: (-1.0, 1.0), 
+                subdiv: None,    
+            }),
+            fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 10, 
+                bounds: (-1.0, 1.0), 
+                subdiv:None,    
+            }),
             tol: -1e-5,
             max_subdiv: 0,
             init_subdiv: None,
@@ -382,8 +404,18 @@ mod tests {
         let f =  |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
         let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 10.0), 
-            gauss_rule_low: GaussQuad::new(GaussQuadType::Legendre, 10),
-            gauss_rule_high: GaussQuad::new(GaussQuadType::Legendre, 30), 
+            fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 10, 
+                bounds: (-1.0, 1.0), 
+                subdiv: None,    
+            }),
+            fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 30, 
+                bounds: (-1.0, 1.0), 
+                subdiv:None,    
+            }),
             tol: 1e-5,
             max_subdiv: 1000,
             init_subdiv: None,
@@ -408,8 +440,18 @@ mod tests {
         let f = |x: f64| x.sin();
         let opts = d1::AdaptiveQuadOpts {
             bounds: (0.0, 30.0),
-            gauss_rule_low: GaussQuad::new(GaussQuadType::Legendre, 10),
-            gauss_rule_high: GaussQuad::new(GaussQuadType::Legendre, 30),
+            fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 10, 
+                bounds: (-1.0, 1.0), 
+                subdiv: None,    
+            }),
+            fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 30, 
+                bounds: (-1.0, 1.0), 
+                subdiv:None,    
+            }),
             tol: 1e-5,
             max_subdiv: 1000,
             init_subdiv: None,
@@ -431,8 +473,18 @@ mod tests {
         let f = |x: f64| (x + 1.0).abs();
         let mut opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 4.0),
-            gauss_rule_low: GaussQuad::new(GaussQuadType::Legendre, 10),
-            gauss_rule_high: GaussQuad::new(GaussQuadType::Legendre, 30),
+            fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 10, 
+                bounds: (-1.0, 1.0), 
+                subdiv: None,    
+            }),
+            fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 30, 
+                bounds: (-1.0, 1.0), 
+                subdiv:None,    
+            }),
             tol: 1e-5,
             max_subdiv: 1000,
             init_subdiv: None,
@@ -470,8 +522,18 @@ mod tests {
         let f = |x: f64| (-x.powi(2)).exp();
         let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 3.0),
-            gauss_rule_low: GaussQuad::new(GaussQuadType::Legendre, 10),
-            gauss_rule_high: GaussQuad::new(GaussQuadType::Legendre, 30),
+            fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 10, 
+                bounds: (-1.0, 1.0), 
+                subdiv: None,    
+            }),
+            fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 30, 
+                bounds: (-1.0, 1.0), 
+                subdiv:None,    
+            }),
             tol: 1e-5,
             max_subdiv: 1000,
             init_subdiv: None,
@@ -496,8 +558,18 @@ mod tests {
         let f = |x: f64| x.ln();
         let opts = d1::AdaptiveQuadOpts {
             bounds: (0.0, 10.0),
-            gauss_rule_low: GaussQuad::new(GaussQuadType::Legendre, 10),
-            gauss_rule_high: GaussQuad::new(GaussQuadType::Legendre, 30),
+            fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 10, 
+                bounds: (-1.0, 1.0), 
+                subdiv: None,    
+            }),
+            fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 30, 
+                bounds: (-1.0, 1.0), 
+                subdiv:None,    
+            }),
             tol: 1e-5,
             max_subdiv: 1000,
             init_subdiv: None,
