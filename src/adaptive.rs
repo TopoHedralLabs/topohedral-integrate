@@ -184,6 +184,9 @@ pub mod d1 {
     /// In this example we integrate the function $f(x) = 7x^4 - 2x^3 - 11x^2 + 15x + 1$ over the 
     /// inteval $[-3, 10]$. We use Gauss-Legendre qadrature rules of order 10 and 30, respectively.
     /// ```
+    /// use topohedral_integrate::adaptive::d1; 
+    /// use topohedral_integrate::gauss::{GaussQuad, GaussQuadType};
+    /// 
     /// let f =  |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
     /// let opts = d1::AdaptiveQuadOpts {
     ///     bounds: (-3.0, 10.0), 
@@ -191,7 +194,7 @@ pub mod d1 {
     ///     gauss_rule_high: GaussQuad::new(GaussQuadType::Legendre, 30), 
     ///     tol: 1e-5,
     ///     max_subdiv: 1000,
-    ///     None,
+    ///     init_subdiv: None,
     ///  };
     /// let res = d1::adaptive_quad(&f, &opts);
     /// ```
