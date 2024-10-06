@@ -7,7 +7,7 @@
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports
-use crate::gauss::{GaussQuad, GaussQuadType};
+use crate::gauss::GaussQuadType;
 use crate::fixed as fi;
 use crate::common::{OptionsStruct, OptionsError, append_reason};
 //}}}
@@ -353,13 +353,13 @@ mod tests {
     //!   in a way that you can justify then change the expected values.
 
     use super::*;
-    use approx::{assert_abs_diff_eq, assert_relative_eq, ulps_eq, AbsDiff};
+    use approx::{assert_abs_diff_eq, assert_relative_eq};
 
 
     /// Test to check that the options struct finds errors
     #[test]
     fn test_adaptive_quad_opts_1d() {
-        let mut opts = d1::AdaptiveQuadOpts {
+        let opts = d1::AdaptiveQuadOpts {
             bounds: (1.0, 0.0),
             fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                 gauss_type: GaussQuadType::Legendre,

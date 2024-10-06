@@ -10,7 +10,7 @@
 //{{{ crate imports
 //}}}
 //{{{ std imports
-use std::{sync::OnceLock, usize::MAX};
+use std::sync::OnceLock;
 //}}}
 //{{{ dep imports
 use nalgebra as na;
@@ -332,7 +332,7 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     let (mut ai, mut bi, mut ci) = (0.0f64, 0.0f64, 0.0f64);
     let (mut aj, mut bj, mut cj) = (0.0f64, 0.0f64, 0.0f64);
     let (mut alpha_i, mut alpha_j) = (0.0f64, 0.0f64);
-    let (mut beta_i, mut beta_j, mut beta_h) = (0.0f64, 0.0f64, 0.0f64);
+    let (mut beta_i, beta_j, mut beta_h) = (0.0f64, 0.0f64, 0.0f64);
     //}}}
     //{{{ com: deal with row 0
     {

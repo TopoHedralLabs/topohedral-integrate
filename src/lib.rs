@@ -31,7 +31,7 @@ mod tests
 {
     use ctor::ctor;
     use topohedral_tracing::*;
-    use super::*;
+    
 
     #[ctor]
     fn init_logger() {

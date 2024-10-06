@@ -219,8 +219,8 @@ pub mod d1 {
     mod tests {
 
         use super::*;
-        use approx::{assert_relative_eq, assert_abs_diff_eq};
-        use approx::ulps_eq;
+        use approx::assert_abs_diff_eq;
+        
         use serde::Deserialize;
         use std::fs;
 
@@ -568,7 +568,7 @@ pub mod d2 {
         //{{{ collection: imports
         use super::*;
         use approx::assert_relative_eq;
-        use approx::ulps_eq;
+        
         use serde::Deserialize;
         use std::fs;
         //}}}
