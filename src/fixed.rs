@@ -1,21 +1,21 @@
-//! This module provides methods for performing fixed quadrature rules for one-dimensional and 
+//! This module provides methods for performing fixed quadrature rules for one-dimensional and
 //! two-dimensional real-valued functions.
 //!
-//! There are two entry points for the 1D fixed quadrature algorithm: 
-//! 
+//! There are two entry points for the 1D fixed quadrature algorithm:
+//!
 //! - The function `fixed_quad`, which can be used when one merely wants to compute the
-//!   integral of a function over a given interval once and therefore does not wish to store the 
+//!   integral of a function over a given interval once and therefore does not wish to store the
 //!   quadrature rule itself.
-//! - The struct `FixedQuad`, which will store the quadrature rule and can be re-used for 
+//! - The struct `FixedQuad`, which will store the quadrature rule and can be re-used for
 //!   different functions.
 //--------------------------------------------------------------------------------------------------
 
-//{{{ crate imports 
-use crate::gauss::{GaussQuad, GaussQuadType, get_legendre_points, get_lobatto_points};
+//{{{ crate imports
+use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuadType};
 //}}}
-//{{{ std imports 
+//{{{ std imports
 //}}}
-//{{{ dep imports 
+//{{{ dep imports
 //}}}
 //--------------------------------------------------------------------------------------------------
 
@@ -43,17 +43,11 @@ pub mod d1 {
         pub subdiv: Option<Vec<f64>>,
     }
     //}}}
-    //{{{ fun: fixed_quad
-    pub fn fixed_quad<F: Fn(f64) -> f64>(f: &F, opts: &FixedQuadOpts) -> f64 
-    {
-        let quad_rule = FixedQuad::new(opts);
-        quad_rule.integrate(f, None)
-    }
-    //}}}
     //{{{ struct: FixedQuad
     #[derive(Debug)]
     pub struct FixedQuad {
-        /// The set of points and weights for the fixed quadrature rule.
+        /// The set of points and weights for the fixed quadrature rule. Point `i` and weight `i`
+        /// are stored in `points_weights[2 * i]` and `points_weights[2 * i + 1]`, respectively.
         pub points_weights: Vec<f64>,
         /// The underlying Gaussian quadrature type
         pub gauss_type: GaussQuadType,
@@ -86,7 +80,7 @@ pub mod d1 {
             //}}}
             //{{{ com: compute points and weights
             match &opts.subdiv {
-                //{{{ case: subdivided 
+                //{{{ case: subdivided
                 Some(subdiv) => {
                     //{{{ com: start div
                     {
@@ -103,7 +97,7 @@ pub mod d1 {
                     //}}}
                     //{{{ com: mid divs
                     for i in 0..subdiv.len() - 1 {
-                        let (c, d) = (subdiv[i], subdiv[i+1]);
+                        let (c, d) = (subdiv[i], subdiv[i + 1]);
                         let jac = (d - c) / (b - a);
                         for i in 0..gauss_rule.nqp {
                             let zi = gauss_rule.points[i];
@@ -127,7 +121,7 @@ pub mod d1 {
                         }
                     }
                     //}}}
-                }, 
+                }
                 //}}}
                 //{{{ case: not subdivided
                 None => {
@@ -140,7 +134,7 @@ pub mod d1 {
                         points_weights.push(xi);
                         points_weights.push(wi);
                     }
-                },
+                }
                 //}}}
             }
             //}}}
@@ -185,259 +179,613 @@ pub mod d1 {
         //{{{ fun: nqp
         pub fn nqp(&self) -> usize {
             self.points_weights.len() / 2
-        }   
+        }
         //}}}
+    }
+    //}}}
+    //{{{ fun: fixed_quad
+    pub fn fixed_quad<F: Fn(f64) -> f64>(f: &F, opts: &FixedQuadOpts) -> f64 {
+        let quad_rule = FixedQuad::new(opts);
+        quad_rule.integrate(f, None)
+    }
+    //}}}
+    //{{{ impl: From<GaussQuad> for FixedQuad
+    impl From<GaussQuad> for FixedQuad {
+        fn from(value: GaussQuad) -> Self {
+            let nqp = value.nqp;
+            let mut points_weights = Vec::new();
+            points_weights.reserve(nqp * 2);
+
+            for i in 0..nqp {
+                let xi = value.points[i];
+                let wi = value.weights[i];
+                points_weights.push(xi);
+                points_weights.push(wi);
+            }
+
+            Self {
+                points_weights,
+                gauss_type: value.gauss_type,
+                order: value.gauss_type.order_from_nqp(nqp),
+                bounds: value.gauss_type.range(),
+            }
+        }
+    }
+    //}}}
+
+    //----------------------------------------------------------------------------------------------
+    //{{{ mod: tests
+    #[cfg(test)]
+    mod tests {
+
+        use super::*;
+        use approx::{assert_relative_eq, assert_abs_diff_eq};
+        use approx::ulps_eq;
+        use serde::Deserialize;
+        use std::fs;
+
+        #[derive(Deserialize)]
+        struct PolyIntegralTestData3 {
+            coeffs: Vec<f64>,
+            integral: f64,
+        }
+
+        #[derive(Deserialize)]
+        struct PolyIntegralTestData2 {
+            range: (f64, f64),
+            p0: PolyIntegralTestData3,
+            p1: PolyIntegralTestData3,
+            P2: PolyIntegralTestData3,
+            P3: PolyIntegralTestData3,
+            P4: PolyIntegralTestData3,
+            P5: PolyIntegralTestData3,
+            P6: PolyIntegralTestData3,
+            P7: PolyIntegralTestData3,
+            P8: PolyIntegralTestData3,
+            P9: PolyIntegralTestData3,
+            P10: PolyIntegralTestData3,
+            P11: PolyIntegralTestData3,
+            P12: PolyIntegralTestData3,
+            P13: PolyIntegralTestData3,
+            P14: PolyIntegralTestData3,
+            P15: PolyIntegralTestData3,
+        }
+
+        #[derive(Deserialize)]
+        struct PolyIntegralTestData1 {
+            description: String,
+            values: PolyIntegralTestData2,
+        }
+
+        impl PolyIntegralTestData1 {
+            fn new() -> Self {
+                let json_file = fs::read_to_string("assets/poly-integrals-1d.json")
+                    .expect("Unable to read file");
+                serde_json::from_str(&json_file).expect("Could not deserialize")
+            }
+        }
+
+        macro_rules! poly_integral_legendre_test {
+            ($test_name: ident, $dataset: ident, $nqp: expr) => {
+                #[test]
+                fn $test_name() {
+                    let test_data = PolyIntegralTestData1::new();
+                    let coeffs = test_data.values.$dataset.coeffs;
+                    let integral1 = test_data.values.$dataset.integral;
+                    let range = test_data.values.range;
+
+                    let pol = |x: f64| {
+                        let mut sum = 0.0;
+                        for (i, c) in coeffs.iter().enumerate() {
+                            sum += c * x.powi(i as i32);
+                        }
+                        sum
+                    };
+
+                    {
+                        let opts = d1::FixedQuadOpts {
+                            gauss_type: GaussQuadType::Legendre,
+                            order: 2 * $nqp - 1,
+                            bounds: range,
+                            subdiv: None,
+                        };
+                        let integral2 = d1::fixed_quad(&pol, &opts);
+                        assert_abs_diff_eq!(integral1, integral2, epsilon = 1e-5);
+                    }
+                    {
+                        let dx = (range.1 - range.0) / 3.0;
+                        let a = range.0 + dx;
+                        let b = range.0 + 2.0 * dx;
+
+                        let opts = d1::FixedQuadOpts {
+                            gauss_type: GaussQuadType::Legendre,
+                            order: 2 * $nqp - 1,
+                            bounds: range,
+                            subdiv: vec![a, b].into(),
+                        };
+                        let integral2 = d1::fixed_quad(&pol, &opts);
+                        assert_abs_diff_eq!(integral1, integral2, epsilon = 1e-5);
+                    }
+                }
+            };
+        }
+
+        // 2-point integrals
+        poly_integral_legendre_test!(poly_integral_legendre_test1, p0, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test2, p1, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test3, P2, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test4, P3, 2);
+        // 3-point-integrals
+        poly_integral_legendre_test!(poly_integral_legendre_test5, p0, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test6, p1, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test7, P2, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test8, P3, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test9, P4, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test10, P5, 3);
+        // 4-point-integrals
+        poly_integral_legendre_test!(poly_integral_legendre_test11, p0, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test12, p1, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test13, P2, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test14, P3, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test15, P4, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test16, P5, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test17, P6, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test18, P7, 4);
+        // 5-point-integrals
+        poly_integral_legendre_test!(poly_integral_legendre_test19, p0, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test20, p1, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test21, P2, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test22, P3, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test23, P4, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test24, P5, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test25, P6, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test26, P7, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test27, P8, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test28, P9, 5);
+
+        macro_rules! poly_integral_lobatto_test {
+            ($test_name: ident, $dataset: ident, $nqp: expr) => {
+                #[test]
+                fn $test_name() {
+                    let test_data = PolyIntegralTestData1::new();
+                    let coeffs = test_data.values.$dataset.coeffs;
+                    let integral1 = test_data.values.$dataset.integral;
+                    let range = test_data.values.range;
+
+                    let pol = |x: f64| {
+                        let mut sum = 0.0;
+                        for (i, c) in coeffs.iter().enumerate() {
+                            sum += c * x.powi(i as i32);
+                        }
+                        sum
+                    };
+
+                    {
+                        let opts = d1::FixedQuadOpts {
+                            gauss_type: GaussQuadType::Lobatto,
+                            order: 2 * $nqp - 3,
+                            bounds: range,
+                            subdiv: None,
+                        };
+                        let integral2 = d1::fixed_quad(&pol, &opts);
+                        assert_abs_diff_eq!(integral1, integral2, epsilon = 1e-5);
+                    }
+                    {
+                        let dx = (range.1 - range.0) / 3.0;
+                        let a = range.0 + dx;
+                        let b = range.0 + 2.0 * dx;
+
+                        let opts = d1::FixedQuadOpts {
+                            gauss_type: GaussQuadType::Lobatto,
+                            order: 2 * $nqp - 3,
+                            bounds: range,
+                            subdiv: vec![a, b].into(),
+                        };
+                        let integral2 = d1::fixed_quad(&pol, &opts);
+                        assert_abs_diff_eq!(integral1, integral2, epsilon = 1e-5);
+                    }
+                }
+            };
+        }
+
+        // 2-point integrals
+        poly_integral_lobatto_test!(poly_integral_lobatto_test1, p0, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test2, p1, 2);
+        // 3-point-integrals
+        poly_integral_lobatto_test!(poly_integral_lobatto_test5, p0, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test6, p1, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test7, P2, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test8, P3, 3);
+        // 4-point-integrals
+        poly_integral_lobatto_test!(poly_integral_lobatto_test11, p0, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test12, p1, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test13, P2, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test14, P3, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test15, P4, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test16, P5, 4);
+        // 5-point-integrals
+        poly_integral_lobatto_test!(poly_integral_lobatto_test19, p0, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test20, p1, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test21, P2, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test22, P3, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test23, P4, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test24, P5, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test25, P6, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test26, P7, 5);
     }
     //}}}
 }
 //}}}
 //{{{ mod d2
 pub mod d2 {
+    //! This module contains the implementation of fixed quadrature rules for two-dimensional
+    //! real-valued functions.
 
     use super::*;
 
+    //{{{ struct: FixedQuadOpts
     #[derive(Debug)]
     pub struct FixedQuadOpts {
+        /// Gauss quadrature rule to use in u and v directions
         pub gauss_type: (GaussQuadType, GaussQuadType),
+        /// Order of the Gauss quadrature rule to use in u and v directions
         pub order: (usize, usize),
+        /// Bounds of the integration region in order ``(umin, max, vmin, vmax)``
         pub bounds: (f64, f64, f64, f64),
+        /// Optional Subdivision of the integration region in order ``(u, v)``
         pub subdiv: Option<(Vec<f64>, Vec<f64>)>,
     }
+    //}}}
+    //{{{ struct: FixedQuad
+    #[derive(Debug)]
+    pub struct FixedQuad {
+        /// The set of points and weights for the fixed quadrature rule. Point `i` and weight `i`
+        /// are stored in `points_weights[3*i..3*i+1]`, and `points_weights[3*i+2]`, respectively.
+        pub points_weights: Vec<f64>,
+        /// The underlying Gaussian quadrature type in each dimension
+        pub gauss_type: (GaussQuadType, GaussQuadType),
+        /// The order of the Gaussian quadrature to use for each dimension.
+        pub order: (usize, usize),
+        /// Bounds of the integration region in order ``(umin, max, vmin, vmax)``
+        pub bounds: (f64, f64, f64, f64),
+    }
+    //}}}
+    //{{{ impl: FixedQuad
+    impl FixedQuad {
+        //{{{ fun: new
+        pub fn new(opts: &FixedQuadOpts) -> Self {
+            let (u_gauss_type, v_gauss_type) = opts.gauss_type;
+            let (u_order, v_order) = opts.order;
+            let (umin, umax, vmin, vmax) = opts.bounds;
+            let mut u_subdiv: Option<Vec<f64>> = None;
+            let mut v_subdiv: Option<Vec<f64>> = None;
 
+            match &opts.subdiv {
+                Some(subdiv) => {
+                    if subdiv.0.len() > 0 {
+                        u_subdiv = Some(subdiv.0.clone());
+                    }
+                    if subdiv.1.len() > 0 {
+                        v_subdiv = Some(subdiv.1.clone());
+                    }
+                }
+                None => {}
+            }
 
-    pub fn fixed_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &FixedQuadOpts) -> f64
-    {
-        let guass_rule_u = GaussQuad::new(opts.gauss_type.0, opts.order.0);
-        let gauss_rule_v = GaussQuad::new(opts.gauss_type.1, opts.order.1); 
+            let fixed_rule_u = d1::FixedQuad::new(&d1::FixedQuadOpts {
+                gauss_type: u_gauss_type,
+                order: u_order,
+                bounds: (umin, umax),
+                subdiv: u_subdiv,
+            });
 
-        let mut integral = 0.0;
+            let fixed_rule_v = d1::FixedQuad::new(&d1::FixedQuadOpts {
+                gauss_type: v_gauss_type,
+                order: v_order,
+                bounds: (vmin, vmax),
+                subdiv: v_subdiv,
+            });
 
-        match &opts.subdiv {
-            Some((subdiv_u, subdiv_v)) => {
+            let nqp = fixed_rule_u.nqp() * fixed_rule_v.nqp();
+            let mut points_weights = Vec::<f64>::new();
+            points_weights.reserve(3 * nqp);
 
-            }, 
-            None => {
+            for i in 0..fixed_rule_u.nqp() {
+                let xi = fixed_rule_u.points_weights[2 * i];
+                let wi = fixed_rule_u.points_weights[2 * i + 1];
 
+                for j in 0..fixed_rule_v.nqp() {
+                    let xj = fixed_rule_v.points_weights[2 * j];
+                    let wj = fixed_rule_v.points_weights[2 * j + 1];
+
+                    points_weights.push(xi);
+                    points_weights.push(xj);
+                    points_weights.push(wi * wj);
+                }
+            }
+
+            Self {
+                points_weights: points_weights,
+                gauss_type: opts.gauss_type,
+                order: opts.order,
+                bounds: opts.bounds,
             }
         }
+        //}}}
+        //{{{ fun: integrate
+        pub fn integrate<F: Fn(f64, f64) -> f64>(
+            &self,
+            f: &F,
+            bounds: Option<(f64, f64, f64, f64)>,
+        ) -> f64 {
+            let mut integral = 0.0;
 
+            match bounds {
+                Some(bounds) => {
+                    let (a, b, c, d) = bounds;
+                    let (umin, umax, vmin, vmax) = self.bounds;
+                    let jac_u = (umax - umin) / (b - a);
+                    let jac_v = (vmax - vmin) / (d - c);
 
-        todo!()
-    }
-}
-//}}}
-
-
-
-
-
-
-//-------------------------------------------------------------------------------------------------
-//{{{ mod: tests
-#[cfg(test)]
-mod tests
-{
-
-    use super::*;
-    use approx::assert_relative_eq;
-    use std::fs;
-    use approx::ulps_eq;
-    use serde::Deserialize;
-
-
-
-    #[derive(Deserialize)]
-    struct PolyIntegralTestData3 {
-        coeffs: Vec<f64>,
-        integral: f64,
-    }
-
-    #[derive(Deserialize)]
-    struct PolyIntegralTestData2 {
-        range: (f64, f64),
-        P0: PolyIntegralTestData3,
-        P1: PolyIntegralTestData3,
-        P2: PolyIntegralTestData3,
-        P3: PolyIntegralTestData3,
-        P4: PolyIntegralTestData3,
-        P5: PolyIntegralTestData3,
-        P6: PolyIntegralTestData3,
-        P7: PolyIntegralTestData3,
-        P8: PolyIntegralTestData3,
-        P9: PolyIntegralTestData3,
-        P10: PolyIntegralTestData3,
-        P11: PolyIntegralTestData3,
-        P12: PolyIntegralTestData3,
-        P13: PolyIntegralTestData3,
-        P14: PolyIntegralTestData3,
-        P15: PolyIntegralTestData3,
-    }
-
-    // #[derive(Deserialize)]
-    // struct Pol
-
-    #[derive(Deserialize)]
-    struct PolyIntegralTestData1 {
-        description: String,
-        values: PolyIntegralTestData2,
-    }
-
-    impl PolyIntegralTestData1 {
-        fn new() -> Self {
-            let json_file =
-                fs::read_to_string("assets/poly-integrals.json").expect("Unable to read file");
-            serde_json::from_str(&json_file).expect("Could not deserialize")
+                    for i in 0..self.points_weights.len() / 3 {
+                        let xi1 = umin + jac_u * (self.points_weights[3 * i] - a);
+                        let xi2 = vmin + jac_v * (self.points_weights[3 * i + 1] - a);
+                        let wi = self.points_weights[3 * i + 2];
+                        integral += f(xi1, xi2) * wi;
+                    }
+                    integral *= jac_u * jac_v;
+                }
+                None => {
+                    for i in 0..self.points_weights.len() / 3 {
+                        let xi1 = self.points_weights[3 * i];
+                        let xi2 = self.points_weights[3 * i + 1];
+                        let wi = self.points_weights[3 * i + 2];
+                        integral += f(xi1, xi2) * wi;
+                    }
+                }
+            }
+            integral
         }
+        //}}}
+        //{{{ fun: nqp
+        pub fn nqp(&self) -> usize {
+            self.points_weights.len() / 3
+        }
+        //}}}
     }
+    //}}}
+    //{{{ fun: fixed_quad
+    pub fn fixed_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &FixedQuadOpts) -> f64 {
+        let quad_rule = FixedQuad::new(opts);
+        quad_rule.integrate(f, None)
+    }
+    //}}}
 
-    macro_rules! poly_integral_legendre_test {
-        ($test_name: ident, $dataset: ident, $nqp: expr) => {
-            #[test]
-            fn $test_name() {
-                let test_data = PolyIntegralTestData1::new();
-                let coeffs = test_data.values.$dataset.coeffs;
-                let integral1 = test_data.values.$dataset.integral;
-                let range = test_data.values.range;
+    //-------------------------------------------------------------------------------------------------
+    //{{{ mod: tests
+    #[cfg(test)]
+    mod tests {
+        //{{{ collection: imports
+        use super::*;
+        use approx::assert_relative_eq;
+        use approx::ulps_eq;
+        use serde::Deserialize;
+        use std::fs;
+        //}}}
+        //{{{ collection: test data
+        #[derive(Deserialize)]
+        struct PolyIntegralTestData3 {
+            coeffs_u: Vec<f64>,
+            coeffs_v: Vec<f64>,
+            integral: f64,
+        }
 
-                let pol = |x: f64| {
-                    let mut sum = 0.0;
-                    for (i, c) in coeffs.iter().enumerate() {
-                        sum += c * x.powi(i as i32);
-                    }
-                    sum
-                };
+        #[derive(Deserialize)]
+        struct PolyIntegralTestData2 {
+            range: (f64, f64, f64, f64),
+            P0: PolyIntegralTestData3,
+            P1: PolyIntegralTestData3,
+            P2: PolyIntegralTestData3,
+            P3: PolyIntegralTestData3,
+            P4: PolyIntegralTestData3,
+            P5: PolyIntegralTestData3,
+            P6: PolyIntegralTestData3,
+            P7: PolyIntegralTestData3,
+            P8: PolyIntegralTestData3,
+            P9: PolyIntegralTestData3,
+            P10: PolyIntegralTestData3,
+            P11: PolyIntegralTestData3,
+            P12: PolyIntegralTestData3,
+            P13: PolyIntegralTestData3,
+            P14: PolyIntegralTestData3,
+            P15: PolyIntegralTestData3,
+        }
 
-                {
-                    let opts = d1::FixedQuadOpts {
-                        gauss_type: GaussQuadType::Legendre,
-                        order: 2 * $nqp - 1,
-                        bounds: range,
-                        subdiv: None,
-                    };
-                    let integral2 = d1::fixed_quad(&pol, &opts);
-                    assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
-                }
-                {
-                    let dx = (range.1 - range.0) / 3.0;
-                    let a = range.0 + dx;
-                    let b = range.0 + 2.0 * dx;
+        #[derive(Deserialize)]
+        struct PolyIntegralTestData1 {
+            description: String,
+            values: PolyIntegralTestData2,
+        }
 
-                    let opts = d1::FixedQuadOpts {
-                        gauss_type: GaussQuadType::Legendre,
-                        order: 2 * $nqp - 1,
-                        bounds: range,
-                        subdiv: vec![a, b].into(),
-                    };
-                    let integral2 = d1::fixed_quad(&pol, &opts);
-                    assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
-                }
+        impl PolyIntegralTestData1 {
+            fn new() -> Self {
+                let json_file = fs::read_to_string("assets/poly-integrals-2d.json")
+                    .expect("Unable to read file");
+                serde_json::from_str(&json_file).expect("Could not deserialize")
             }
-        };
-    }
+        }
+        //}}}
+        //{{{ collection: legendre tests
+        macro_rules! poly_integral_legendre_test {
+            ($test_name: ident, $dataset: ident, $nqp: expr) => {
+                #[test]
+                fn $test_name() {
+                    let test_data = PolyIntegralTestData1::new();
+                    let coeffs_u = test_data.values.$dataset.coeffs_u;
+                    let coeffs_v = test_data.values.$dataset.coeffs_v;
+                    let integral1 = test_data.values.$dataset.integral;
+                    let range = test_data.values.range;
 
-    // 2-point integrals
-    poly_integral_legendre_test!(poly_integral_legendre_test1, P0, 2);
-    poly_integral_legendre_test!(poly_integral_legendre_test2, P1, 2);
-    poly_integral_legendre_test!(poly_integral_legendre_test3, P2, 2);
-    poly_integral_legendre_test!(poly_integral_legendre_test4, P3, 2);
-    // 3-point-integrals
-    poly_integral_legendre_test!(poly_integral_legendre_test5, P0, 3);
-    poly_integral_legendre_test!(poly_integral_legendre_test6, P1, 3);
-    poly_integral_legendre_test!(poly_integral_legendre_test7, P2, 3);
-    poly_integral_legendre_test!(poly_integral_legendre_test8, P3, 3);
-    poly_integral_legendre_test!(poly_integral_legendre_test9, P4, 3);
-    poly_integral_legendre_test!(poly_integral_legendre_test10, P5, 3);
-    // 4-point-integrals
-    poly_integral_legendre_test!(poly_integral_legendre_test11, P0, 4);
-    poly_integral_legendre_test!(poly_integral_legendre_test12, P1, 4);
-    poly_integral_legendre_test!(poly_integral_legendre_test13, P2, 4);
-    poly_integral_legendre_test!(poly_integral_legendre_test14, P3, 4);
-    poly_integral_legendre_test!(poly_integral_legendre_test15, P4, 4);
-    poly_integral_legendre_test!(poly_integral_legendre_test16, P5, 4);
-    poly_integral_legendre_test!(poly_integral_legendre_test17, P6, 4);
-    poly_integral_legendre_test!(poly_integral_legendre_test18, P7, 4);
-    // 5-point-integrals
-    poly_integral_legendre_test!(poly_integral_legendre_test19, P0, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test20, P1, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test21, P2, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test22, P3, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test23, P4, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test24, P5, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test25, P6, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test26, P7, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test27, P8, 5);
-    poly_integral_legendre_test!(poly_integral_legendre_test28, P9, 5);
+                    let pol = |x: f64, y: f64| {
+                        let mut sum_u = 0.0;
+                        for (i, c) in coeffs_u.iter().enumerate() {
+                            sum_u += c * x.powi(i as i32);
+                        }
+                        let mut sum_v = 0.0;
+                        for (i, c) in coeffs_v.iter().enumerate() {
+                            sum_v += c * y.powi(i as i32);
+                        }
+                        sum_u * sum_v
+                    };
 
-    macro_rules! poly_integral_lobatto_test {
-        ($test_name: ident, $dataset: ident, $nqp: expr) => {
-            #[test]
-            fn $test_name() {
-                let test_data = PolyIntegralTestData1::new();
-                let coeffs = test_data.values.$dataset.coeffs;
-                let integral1 = test_data.values.$dataset.integral;
-                let range = test_data.values.range;
-
-                let pol = |x: f64| {
-                    let mut sum = 0.0;
-                    for (i, c) in coeffs.iter().enumerate() {
-                        sum += c * x.powi(i as i32);
+                    {
+                        let opts = d2::FixedQuadOpts {
+                            gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                            order: (2 * $nqp - 1, 2 * $nqp - 1),
+                            bounds: range,
+                            subdiv: None,
+                        };
+                        let integral2 = d2::fixed_quad(&pol, &opts);
+                        assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
                     }
-                    sum
-                };
+                    {
+                        let dx = (range.1 - range.0) / 3.0;
+                        let a = range.0 + dx;
+                        let b = range.0 + 2.0 * dx;
+                        let dy = (range.3 - range.2) / 3.0;
+                        let c = range.2 + dy;
+                        let d = range.2 + 2.0 * dy;
 
-                {
-                    let opts = d1::FixedQuadOpts {
-                        gauss_type: GaussQuadType::Lobatto,
-                        order: 2 * $nqp - 3,
-                        bounds: range,
-                        subdiv: None,
-                    };
-                    let integral2 = d1::fixed_quad(&pol, &opts);
-                    assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
+                        let opts = d2::FixedQuadOpts {
+                            gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                            order: (2 * $nqp - 1, 2 * $nqp - 1),
+                            bounds: range,
+                            subdiv: Some((vec![a, b], vec![c, d])),
+                        };
+                        let integral2 = d2::fixed_quad(&pol, &opts);
+                        assert_relative_eq!(integral1, integral2, epsilon = 1e-4);
+                    }
                 }
-                {
-                    let dx = (range.1 - range.0) / 3.0;
-                    let a = range.0 + dx;
-                    let b = range.0 + 2.0 * dx;
+            };
+        }
 
-                    let opts = d1::FixedQuadOpts {
-                        gauss_type: GaussQuadType::Lobatto,
-                        order: 2 * $nqp - 3,
-                        bounds: range,
-                        subdiv: vec![a, b].into(),
+        // 2-point integrals
+        poly_integral_legendre_test!(poly_integral_legendre_test1, P0, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test2, P1, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test3, P2, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test4, P3, 2);
+        // 3-point-integrals
+        poly_integral_legendre_test!(poly_integral_legendre_test5, P0, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test6, P1, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test7, P2, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test8, P3, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test9, P4, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test10, P5, 3);
+        // 4-point-integrals
+        poly_integral_legendre_test!(poly_integral_legendre_test11, P0, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test12, P1, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test13, P2, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test14, P3, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test15, P4, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test16, P5, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test17, P6, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test18, P7, 4);
+        // 5-point-integrals
+        poly_integral_legendre_test!(poly_integral_legendre_test19, P0, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test20, P1, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test21, P2, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test22, P3, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test23, P4, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test24, P5, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test25, P6, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test26, P7, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test27, P8, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test28, P9, 5);
+        //}}}
+        //{{{ collection: lobatto tests
+        macro_rules! poly_integral_lobatto_test {
+            ($test_name: ident, $dataset: ident, $nqp: expr) => {
+                #[test]
+                fn $test_name() {
+                    let test_data = PolyIntegralTestData1::new();
+                    let coeffs_u = test_data.values.$dataset.coeffs_u;
+                    let coeffs_v = test_data.values.$dataset.coeffs_v;
+                    let integral1 = test_data.values.$dataset.integral;
+                    let range = test_data.values.range;
+
+                    let pol = |x: f64, y: f64| {
+                        let mut sum_u = 0.0;
+                        for (i, c) in coeffs_u.iter().enumerate() {
+                            sum_u += c * x.powi(i as i32);
+                        }
+                        let mut sum_v = 0.0;
+                        for (i, c) in coeffs_v.iter().enumerate() {
+                            sum_v += c * y.powi(i as i32);
+                        }
+                        sum_u * sum_v
                     };
-                    let integral2 = d1::fixed_quad(&pol, &opts);
-                    assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
+
+                    {
+                        let opts = d2::FixedQuadOpts {
+                            gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                            order: (2 * $nqp - 1, 2 * $nqp - 1),
+                            bounds: range,
+                            subdiv: None,
+                        };
+                        let integral2 = d2::fixed_quad(&pol, &opts);
+                        assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
+                    }
+                    {
+                        let dx = (range.1 - range.0) / 3.0;
+                        let a = range.0 + dx;
+                        let b = range.0 + 2.0 * dx;
+                        let dy = (range.3 - range.2) / 3.0;
+                        let c = range.2 + dy;
+                        let d = range.2 + 2.0 * dy;
+
+                        let opts = d2::FixedQuadOpts {
+                            gauss_type: (GaussQuadType::Lobatto, GaussQuadType::Lobatto),
+                            order: (2 * $nqp - 1, 2 * $nqp - 1),
+                            bounds: range,
+                            subdiv: Some((vec![a, b], vec![c, d])),
+                        };
+                        let integral2 = d2::fixed_quad(&pol, &opts);
+                        assert_relative_eq!(integral1, integral2, epsilon = 1e-3);
+                    }
                 }
-            }
-        };
+            };
+        }
+
+        poly_integral_lobatto_test!(poly_integral_lobatto_test1, P0, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test2, P1, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test3, P2, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test4, P3, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test5, P0, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test6, P1, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test7, P2, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test8, P3, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test9, P4, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test10, P5, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test11, P0, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test12, P1, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test13, P2, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test14, P3, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test15, P4, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test16, P5, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test17, P6, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test18, P7, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test19, P0, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test20, P1, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test21, P2, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test22, P3, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test23, P4, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test24, P5, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test25, P6, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test26, P7, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test27, P8, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test28, P9, 5);
+        //}}}
     }
-
-    // 2-point integrals
-    poly_integral_lobatto_test!(poly_integral_lobatto_test1, P0, 2);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test2, P1, 2);
-    // 3-point-integrals
-    poly_integral_lobatto_test!(poly_integral_lobatto_test5, P0, 3);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test6, P1, 3);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test7, P2, 3);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test8, P3, 3);
-    // 4-point-integrals
-    poly_integral_lobatto_test!(poly_integral_lobatto_test11, P0, 4);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test12, P1, 4);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test13, P2, 4);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test14, P3, 4);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test15, P4, 4);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test16, P5, 4);
-    // 5-point-integrals
-    poly_integral_lobatto_test!(poly_integral_lobatto_test19, P0, 5);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test20, P1, 5);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test21, P2, 5);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test22, P3, 5);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test23, P4, 5);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test24, P5, 5);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test25, P6, 5);
-    poly_integral_lobatto_test!(poly_integral_lobatto_test26, P7, 5);
-
-  
+    //}}}
 }
 //}}}
