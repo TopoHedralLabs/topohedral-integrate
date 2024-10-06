@@ -66,6 +66,20 @@ impl GaussQuadType {
             Self::Lobatto => (-1.0, 1.0),
         }
     }
+
+    pub fn  nqp_from_order(&self, order: usize) -> usize {
+        match self {
+            Self::Legendre => (order + 1) / 2,
+            Self::Lobatto => (order + 3) / 2,
+        }
+    }   
+
+    pub fn order_from_nqp(&self, nqp: usize) -> usize {
+        match self {
+            Self::Legendre => 2 * nqp - 1,
+            Self::Lobatto => 2 * nqp - 3,
+        }
+    }   
 }
 //}}}
 //{{{ collection: GuassQuadSet
