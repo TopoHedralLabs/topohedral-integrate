@@ -235,20 +235,20 @@ pub mod d1 {
             range: (f64, f64),
             p0: PolyIntegralTestData3,
             p1: PolyIntegralTestData3,
-            P2: PolyIntegralTestData3,
-            P3: PolyIntegralTestData3,
-            P4: PolyIntegralTestData3,
-            P5: PolyIntegralTestData3,
-            P6: PolyIntegralTestData3,
-            P7: PolyIntegralTestData3,
-            P8: PolyIntegralTestData3,
-            P9: PolyIntegralTestData3,
-            P10: PolyIntegralTestData3,
-            P11: PolyIntegralTestData3,
-            P12: PolyIntegralTestData3,
-            P13: PolyIntegralTestData3,
-            P14: PolyIntegralTestData3,
-            P15: PolyIntegralTestData3,
+            p2: PolyIntegralTestData3,
+            p3: PolyIntegralTestData3,
+            p4: PolyIntegralTestData3,
+            p5: PolyIntegralTestData3,
+            p6: PolyIntegralTestData3,
+            p7: PolyIntegralTestData3,
+            p8: PolyIntegralTestData3,
+            p9: PolyIntegralTestData3,
+            p10: PolyIntegralTestData3,
+            p11: PolyIntegralTestData3,
+            p12: PolyIntegralTestData3,
+            p13: PolyIntegralTestData3,
+            p14: PolyIntegralTestData3,
+            p15: PolyIntegralTestData3,
         }
 
         #[derive(Deserialize)]
@@ -313,35 +313,35 @@ pub mod d1 {
         // 2-point integrals
         poly_integral_legendre_test!(poly_integral_legendre_test1, p0, 2);
         poly_integral_legendre_test!(poly_integral_legendre_test2, p1, 2);
-        poly_integral_legendre_test!(poly_integral_legendre_test3, P2, 2);
-        poly_integral_legendre_test!(poly_integral_legendre_test4, P3, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test3, p2, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test4, p3, 2);
         // 3-point-integrals
         poly_integral_legendre_test!(poly_integral_legendre_test5, p0, 3);
         poly_integral_legendre_test!(poly_integral_legendre_test6, p1, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test7, P2, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test8, P3, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test9, P4, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test10, P5, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test7, p2, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test8, p3, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test9, p4, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test10, p5, 3);
         // 4-point-integrals
         poly_integral_legendre_test!(poly_integral_legendre_test11, p0, 4);
         poly_integral_legendre_test!(poly_integral_legendre_test12, p1, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test13, P2, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test14, P3, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test15, P4, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test16, P5, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test17, P6, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test18, P7, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test13, p2, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test14, p3, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test15, p4, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test16, p5, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test17, p6, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test18, p7, 4);
         // 5-point-integrals
         poly_integral_legendre_test!(poly_integral_legendre_test19, p0, 5);
         poly_integral_legendre_test!(poly_integral_legendre_test20, p1, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test21, P2, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test22, P3, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test23, P4, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test24, P5, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test25, P6, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test26, P7, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test27, P8, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test28, P9, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test21, p2, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test22, p3, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test23, p4, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test24, p5, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test25, p6, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test26, p7, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test27, p8, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test28, p9, 5);
 
         macro_rules! poly_integral_lobatto_test {
             ($test_name: ident, $dataset: ident, $nqp: expr) => {
@@ -394,24 +394,24 @@ pub mod d1 {
         // 3-point-integrals
         poly_integral_lobatto_test!(poly_integral_lobatto_test5, p0, 3);
         poly_integral_lobatto_test!(poly_integral_lobatto_test6, p1, 3);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test7, P2, 3);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test8, P3, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test7, p2, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test8, p3, 3);
         // 4-point-integrals
         poly_integral_lobatto_test!(poly_integral_lobatto_test11, p0, 4);
         poly_integral_lobatto_test!(poly_integral_lobatto_test12, p1, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test13, P2, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test14, P3, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test15, P4, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test16, P5, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test13, p2, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test14, p3, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test15, p4, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test16, p5, 4);
         // 5-point-integrals
         poly_integral_lobatto_test!(poly_integral_lobatto_test19, p0, 5);
         poly_integral_lobatto_test!(poly_integral_lobatto_test20, p1, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test21, P2, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test22, P3, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test23, P4, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test24, P5, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test25, P6, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test26, P7, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test21, p2, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test22, p3, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test23, p4, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test24, p5, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test25, p6, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test26, p7, 5);
     }
     //}}}
 }
@@ -583,22 +583,22 @@ pub mod d2 {
         #[derive(Deserialize)]
         struct PolyIntegralTestData2 {
             range: (f64, f64, f64, f64),
-            P0: PolyIntegralTestData3,
-            P1: PolyIntegralTestData3,
-            P2: PolyIntegralTestData3,
-            P3: PolyIntegralTestData3,
-            P4: PolyIntegralTestData3,
-            P5: PolyIntegralTestData3,
-            P6: PolyIntegralTestData3,
-            P7: PolyIntegralTestData3,
-            P8: PolyIntegralTestData3,
-            P9: PolyIntegralTestData3,
-            P10: PolyIntegralTestData3,
-            P11: PolyIntegralTestData3,
-            P12: PolyIntegralTestData3,
-            P13: PolyIntegralTestData3,
-            P14: PolyIntegralTestData3,
-            P15: PolyIntegralTestData3,
+            p0: PolyIntegralTestData3,
+            p1: PolyIntegralTestData3,
+            p2: PolyIntegralTestData3,
+            p3: PolyIntegralTestData3,
+            p4: PolyIntegralTestData3,
+            p5: PolyIntegralTestData3,
+            p6: PolyIntegralTestData3,
+            p7: PolyIntegralTestData3,
+            p8: PolyIntegralTestData3,
+            p9: PolyIntegralTestData3,
+            p10: PolyIntegralTestData3,
+            p11: PolyIntegralTestData3,
+            p12: PolyIntegralTestData3,
+            p13: PolyIntegralTestData3,
+            p14: PolyIntegralTestData3,
+            p15: PolyIntegralTestData3,
         }
 
         #[derive(Deserialize)]
@@ -670,37 +670,37 @@ pub mod d2 {
         }
 
         // 2-point integrals
-        poly_integral_legendre_test!(poly_integral_legendre_test1, P0, 2);
-        poly_integral_legendre_test!(poly_integral_legendre_test2, P1, 2);
-        poly_integral_legendre_test!(poly_integral_legendre_test3, P2, 2);
-        poly_integral_legendre_test!(poly_integral_legendre_test4, P3, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test1, p0, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test2, p1, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test3, p2, 2);
+        poly_integral_legendre_test!(poly_integral_legendre_test4, p3, 2);
         // 3-point-integrals
-        poly_integral_legendre_test!(poly_integral_legendre_test5, P0, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test6, P1, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test7, P2, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test8, P3, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test9, P4, 3);
-        poly_integral_legendre_test!(poly_integral_legendre_test10, P5, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test5, p0, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test6, p1, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test7, p2, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test8, p3, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test9, p4, 3);
+        poly_integral_legendre_test!(poly_integral_legendre_test10, p5, 3);
         // 4-point-integrals
-        poly_integral_legendre_test!(poly_integral_legendre_test11, P0, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test12, P1, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test13, P2, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test14, P3, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test15, P4, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test16, P5, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test17, P6, 4);
-        poly_integral_legendre_test!(poly_integral_legendre_test18, P7, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test11, p0, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test12, p1, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test13, p2, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test14, p3, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test15, p4, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test16, p5, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test17, p6, 4);
+        poly_integral_legendre_test!(poly_integral_legendre_test18, p7, 4);
         // 5-point-integrals
-        poly_integral_legendre_test!(poly_integral_legendre_test19, P0, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test20, P1, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test21, P2, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test22, P3, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test23, P4, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test24, P5, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test25, P6, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test26, P7, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test27, P8, 5);
-        poly_integral_legendre_test!(poly_integral_legendre_test28, P9, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test19, p0, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test20, p1, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test21, p2, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test22, p3, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test23, p4, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test24, p5, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test25, p6, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test26, p7, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test27, p8, 5);
+        poly_integral_legendre_test!(poly_integral_legendre_test28, p9, 5);
         //}}}
         //{{{ collection: lobatto tests
         macro_rules! poly_integral_lobatto_test {
@@ -756,34 +756,34 @@ pub mod d2 {
             };
         }
 
-        poly_integral_lobatto_test!(poly_integral_lobatto_test1, P0, 2);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test2, P1, 2);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test3, P2, 2);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test4, P3, 2);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test5, P0, 3);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test6, P1, 3);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test7, P2, 3);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test8, P3, 3);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test9, P4, 3);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test10, P5, 3);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test11, P0, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test12, P1, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test13, P2, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test14, P3, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test15, P4, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test16, P5, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test17, P6, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test18, P7, 4);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test19, P0, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test20, P1, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test21, P2, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test22, P3, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test23, P4, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test24, P5, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test25, P6, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test26, P7, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test27, P8, 5);
-        poly_integral_lobatto_test!(poly_integral_lobatto_test28, P9, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test1, p0, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test2, p1, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test3, p2, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test4, p3, 2);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test5, p0, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test6, p1, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test7, p2, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test8, p3, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test9, p4, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test10, p5, 3);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test11, p0, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test12, p1, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test13, p2, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test14, p3, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test15, p4, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test16, p5, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test17, p6, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test18, p7, 4);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test19, p0, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test20, p1, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test21, p2, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test22, p3, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test23, p4, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test24, p5, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test25, p6, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test26, p7, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test27, p8, 5);
+        poly_integral_lobatto_test!(poly_integral_lobatto_test28, p9, 5);
         //}}}
     }
     //}}}
