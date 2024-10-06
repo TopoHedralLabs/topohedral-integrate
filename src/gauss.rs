@@ -483,14 +483,14 @@ mod tests {
 
     #[derive(Deserialize)]
     struct GaussQuadTest3 {
-        N2: GaussQuadTest4,
-        N3: GaussQuadTest4,
-        N4: GaussQuadTest4,
-        N5: GaussQuadTest4,
-        N6: GaussQuadTest4,
-        N11: GaussQuadTest4,
-        N26: GaussQuadTest4,
-        N37: GaussQuadTest4,
+        n2: GaussQuadTest4,
+        n3: GaussQuadTest4,
+        n4: GaussQuadTest4,
+        n5: GaussQuadTest4,
+        n6: GaussQuadTest4,
+        n11: GaussQuadTest4,
+        n26: GaussQuadTest4,
+        n37: GaussQuadTest4,
     }
 
     #[derive(Deserialize)]
@@ -532,14 +532,14 @@ mod tests {
             }
         };
     }
-    legendre_test!(legendre_test1, N2, 0);
-    legendre_test!(legendre_test2, N3, 1);
-    legendre_test!(legendre_test3, N4, 2);
-    legendre_test!(legendre_test4, N5, 3);
-    legendre_test!(legendre_test5, N6, 4);
-    legendre_test!(legendre_test6, N11, 9);
-    legendre_test!(legendre_test7, N26, 24);
-    legendre_test!(legendre_test8, N37, 35);
+    legendre_test!(legendre_test1, n2, 0);
+    legendre_test!(legendre_test2, n3, 1);
+    legendre_test!(legendre_test3, n4, 2);
+    legendre_test!(legendre_test4, n5, 3);
+    legendre_test!(legendre_test5, n6, 4);
+    legendre_test!(legendre_test6, n11, 9);
+    legendre_test!(legendre_test7, n26, 24);
+    legendre_test!(legendre_test8, n37, 35);
     //..............................................................................................
 
     macro_rules! lobatto_test {
@@ -562,14 +562,14 @@ mod tests {
             }
         };
     }
-    lobatto_test!(lobatto_test1, N2, 0);
-    lobatto_test!(lobatto_test2, N3, 1);
-    lobatto_test!(lobatto_test3, N4, 2);
-    lobatto_test!(lobatto_test4, N5, 3);
-    lobatto_test!(lobatto_test5, N6, 4);
-    lobatto_test!(lobatto_test6, N11, 9);
-    lobatto_test!(lobatto_test7, N26, 24);
-    lobatto_test!(lobatto_test8, N37, 35);
+    lobatto_test!(lobatto_test1, n2, 0);
+    lobatto_test!(lobatto_test2, n3, 1);
+    lobatto_test!(lobatto_test3, n4, 2);
+    lobatto_test!(lobatto_test4, n5, 3);
+    lobatto_test!(lobatto_test5, n6, 4);
+    lobatto_test!(lobatto_test6, n11, 9);
+    lobatto_test!(lobatto_test7, n26, 24);
+    lobatto_test!(lobatto_test8, n37, 35);
     //..............................................................................................
 
 }
