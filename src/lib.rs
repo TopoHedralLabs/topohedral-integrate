@@ -16,7 +16,6 @@
 
 
 mod common;
-
 pub use common::{OptionsError, OptionsStruct};
 pub mod gauss;
 pub mod adaptive;
