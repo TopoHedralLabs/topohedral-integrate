@@ -445,8 +445,9 @@ mod tests {
     use approx::assert_relative_eq;
     use std::fs;
     use approx::ulps_eq;
-
     use serde::Deserialize;
+
+    const MAX_REL: f64 = 1e-10;
 
     #[test] 
     fn test_get_legendre_points() {
@@ -525,8 +526,8 @@ mod tests {
                 let weights2 = leg.weights[$idx].clone();
                 assert_eq!(points1.len(), points2.len());
                 for i in 0..points1.len() {
-                    assert_relative_eq!(points1[i], points2[i], epsilon = 1e-10);
-                    assert_relative_eq!(weights1[i], weights2[i], epsilon = 1e-10);
+                    assert_relative_eq!(points1[i], points2[i], epsilon = MAX_REL);
+                    assert_relative_eq!(weights1[i], weights2[i], epsilon = MAX_REL);
                 }
             }
         };
@@ -555,8 +556,8 @@ mod tests {
 
                 assert_eq!(points1.len(), points2.len());
                 for i in 0..points1.len() {
-                    assert_relative_eq!(points1[i], points2[i], epsilon = 1e-10);
-                    assert_relative_eq!(weights1[i], weights2[i], epsilon = 1e-10);
+                    assert_relative_eq!(points1[i], points2[i], epsilon = MAX_REL);
+                    assert_relative_eq!(weights1[i], weights2[i], epsilon = MAX_REL);
                 }
             }
         };
