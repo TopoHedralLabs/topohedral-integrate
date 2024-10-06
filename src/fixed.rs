@@ -219,10 +219,12 @@ pub mod d1 {
     mod tests {
 
         use super::*;
-        use approx::assert_abs_diff_eq;
+        use approx::assert_relative_eq;
         
         use serde::Deserialize;
         use std::fs;
+
+        const MAX_REL: f64 = 1e-14;
 
         #[derive(Deserialize)]
         struct PolyIntegralTestData3 {
@@ -290,7 +292,7 @@ pub mod d1 {
                             subdiv: None,
                         };
                         let integral2 = d1::fixed_quad(&pol, &opts);
-                        assert_abs_diff_eq!(integral1, integral2, epsilon = 1e-5);
+                        assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                     }
                     {
                         let dx = (range.1 - range.0) / 3.0;
@@ -304,7 +306,7 @@ pub mod d1 {
                             subdiv: vec![a, b].into(),
                         };
                         let integral2 = d1::fixed_quad(&pol, &opts);
-                        assert_abs_diff_eq!(integral1, integral2, epsilon = 1e-5);
+                        assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                     }
                 }
             };
@@ -368,7 +370,7 @@ pub mod d1 {
                             subdiv: None,
                         };
                         let integral2 = d1::fixed_quad(&pol, &opts);
-                        assert_abs_diff_eq!(integral1, integral2, epsilon = 1e-5);
+                        assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                     }
                     {
                         let dx = (range.1 - range.0) / 3.0;
@@ -382,7 +384,7 @@ pub mod d1 {
                             subdiv: vec![a, b].into(),
                         };
                         let integral2 = d1::fixed_quad(&pol, &opts);
-                        assert_abs_diff_eq!(integral1, integral2, epsilon = 1e-5);
+                        assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                     }
                 }
             };
@@ -567,10 +569,13 @@ pub mod d2 {
     mod tests {
         //{{{ collection: imports
         use super::*;
-        use approx::assert_relative_eq;
+        use approx::{assert_relative_eq };
         
         use serde::Deserialize;
         use std::fs;
+
+
+        const MAX_REL: f64 = 1e-14;
         //}}}
         //{{{ collection: test data
         #[derive(Deserialize)]
@@ -646,7 +651,7 @@ pub mod d2 {
                             subdiv: None,
                         };
                         let integral2 = d2::fixed_quad(&pol, &opts);
-                        assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
+                        assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                     }
                     {
                         let dx = (range.1 - range.0) / 3.0;
@@ -663,7 +668,8 @@ pub mod d2 {
                             subdiv: Some((vec![a, b], vec![c, d])),
                         };
                         let integral2 = d2::fixed_quad(&pol, &opts);
-                        assert_relative_eq!(integral1, integral2, epsilon = 1e-4);
+
+                        assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                     }
                 }
             };
@@ -733,7 +739,7 @@ pub mod d2 {
                             subdiv: None,
                         };
                         let integral2 = d2::fixed_quad(&pol, &opts);
-                        assert_relative_eq!(integral1, integral2, epsilon = 1e-5);
+                        assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                     }
                     {
                         let dx = (range.1 - range.0) / 3.0;
@@ -750,7 +756,7 @@ pub mod d2 {
                             subdiv: Some((vec![a, b], vec![c, d])),
                         };
                         let integral2 = d2::fixed_quad(&pol, &opts);
-                        assert_relative_eq!(integral1, integral2, epsilon = 1e-3);
+                        assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                     }
                 }
             };
