@@ -17,7 +17,7 @@ def compute_legendre(data: dict):
         leg_data = np.loadtxt(leg_file)
         points = leg_data[:,0]
         weights = leg_data[:,1]
-        data["legendre"]["values"]["N{}".format(ni)] = {"points": points.tolist(), "weights": weights.tolist()}
+        data["legendre"]["values"]["n{}".format(ni)] = {"points": points.tolist(), "weights": weights.tolist()}
 
 
 
@@ -33,7 +33,7 @@ def compute_lobatto(data: dict):
         lob_data = np.loadtxt(lob_file)
         points = lob_data[:,0]
         weights = lob_data[:,1]
-        data["lobatto"]["values"]["N{}".format(ni)] = {"points":points.tolist(), "weights":weights.tolist()}
+        data["lobatto"]["values"]["n{}".format(ni)] = {"points":points.tolist(), "weights":weights.tolist()}
 
     
 
