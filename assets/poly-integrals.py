@@ -19,7 +19,7 @@ def compute_integrals_1d(data: dict):
         for j in range(i+1):
             integral += (coeffs[j] / (j + 1)) * (b**(j+1) - a**(j+1))
 
-        data["values"]["P{}".format(i)] = {"coeffs": coeffs, "integral": integral}
+        data["values"]["p{}".format(i)] = {"coeffs": coeffs, "integral": integral}
 
 def compute_integrals_2d(data: dict):
 
@@ -48,7 +48,7 @@ def compute_integrals_2d(data: dict):
 
         integral = integral_u * integral_v
 
-        data["values"]["P{}".format(i)] = {"coeffs_u": coeffs_u, "coeffs_v": coeffs_v, "integral": integral}
+        data["values"]["p{}".format(i)] = {"coeffs_u": coeffs_u, "coeffs_v": coeffs_v, "integral": integral}
 
 def main():
 
