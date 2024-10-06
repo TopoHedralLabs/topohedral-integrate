@@ -462,10 +462,10 @@ pub mod d2 {
 
             match &opts.subdiv {
                 Some(subdiv) => {
-                    if subdiv.0.len() > 0 {
+                    if !subdiv.0.is_empty() {
                         u_subdiv = Some(subdiv.0.clone());
                     }
-                    if subdiv.1.len() > 0 {
+                    if !subdiv.1.is_empty() {
                         v_subdiv = Some(subdiv.1.clone());
                     }
                 }
@@ -505,7 +505,7 @@ pub mod d2 {
             }
 
             Self {
-                points_weights: points_weights,
+                points_weights,
                 gauss_type: opts.gauss_type,
                 order: opts.order,
                 bounds: opts.bounds,

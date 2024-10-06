@@ -100,30 +100,27 @@ pub mod d1 {
                 ok = false;
             }
 
-            match self.init_subdiv {
-                Some(ref v) => {
-                    if v.len() == 0 {
-                        append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
-                        ok = false
+            if let Some(ref v) = self.init_subdiv {
+                if v.is_empty() {
+                    append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
+                    ok = false
+                }
+                for i in 0..v.len() {
+                    if v[i] <= self.bounds.0 || v[i] >= self.bounds.1 {
+                        append_reason(&mut err, "Initial subdivisions invalid, must be inside bounds");
+                        ok = false;
+                        break;
                     }
-                    for i in 0..v.len() {
-                        if v[i] <= self.bounds.0 || v[i] >= self.bounds.1 {
-                            append_reason(&mut err, "Initial subdivisions invalid, must be inside bounds");
-                            ok = false;
-                            break;
-                        }
-                    }
-                },
-                None => {}
+                }
             }
 
 
-            let out = if ok {
+              
+            if ok {
                 Ok(())
             } else {
                 Err(err)
-            };  
-            out
+            }
         }
     }
     //}}}
@@ -325,16 +322,12 @@ pub mod d1 {
         }
         //}}}
         //{{{ ret
-        let out = AdaptiveQuadResult {
-            integral: integral,
+        AdaptiveQuadResult {
+            integral,
             error_estimate: err_est,
             num_subdiv: intervals.len(),
-            num_fn_eval: num_fn_eval,
-        };
-        //{{{ trace
-        info!("out = {:?}", out);
-        //}}}
-        out
+            num_fn_eval,
+        }
         //}}}
     }
     //}}}

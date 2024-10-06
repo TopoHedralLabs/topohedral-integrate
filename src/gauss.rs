@@ -233,8 +233,8 @@ impl GaussQuad {
             }
         };
 
-        let out = Self::from_points_weights(gauss_type, points, weights);
-        out
+        
+        Self::from_points_weights(gauss_type, points, weights)
     }
 }
 //}}}
@@ -421,7 +421,7 @@ fn lobatto_recursion_coeffs(i: usize) -> (f64, f64, f64) {
 //}}}
 //{{{ fun: legendre
 fn legendre(n: usize, x: f64) -> f64 {
-    debug_assert!(x >= -1.0 && x <= 1.0);
+    debug_assert!((-1.0..=1.0).contains(&x));
 
     let (mut leg_n, mut leg_1, mut leg_2) = (1.0f64, 1.0f64, 0.0f64);
     for i in 0..n {
@@ -452,8 +452,8 @@ mod tests {
     fn test_get_legendre_points() {
         let points = get_legendre_points();
         let points_5 = points.gauss_quad_from_nqp(5);
-        let points_ok = vec![-0.9061798459386642, -0.5384693101056831, 2.1044260617163113e-16, 0.5384693101056824, 0.9061798459386633];
-        let weights_k = vec![0.23692688505618958, 0.4786286704993664, 0.5688888888888887, 0.47862867049936586, 0.2369268850561888];
+        let points_ok = [-0.9061798459386642, -0.5384693101056831, 2.1044260617163113e-16, 0.5384693101056824, 0.9061798459386633];
+        let weights_k = [0.23692688505618958, 0.4786286704993664, 0.5688888888888887, 0.47862867049936586, 0.2369268850561888];
 
         for i in 0..5 {
             assert!(ulps_eq!(points_ok[i], points_5.points[i], max_ulps = 4));
@@ -465,8 +465,8 @@ mod tests {
     fn test_get_lobatto_points() {
         let points = get_lobatto_points();
         let points_5 = points.gauss_quad_from_nqp(5);
-        let points_ok = vec![-1.0, -0.6546536707079771, 5.307881287095001e-17, 0.6546536707079771, 1.0];
-        let weights_ok = vec![0.1, 0.5444444444444444, 0.7111111111111111, 0.5444444444444444, 0.1];
+        let points_ok = [-1.0, -0.6546536707079771, 5.307881287095001e-17, 0.6546536707079771, 1.0];
+        let weights_ok = [0.1, 0.5444444444444444, 0.7111111111111111, 0.5444444444444444, 0.1];
 
         for i in 0..5 {
             assert!(ulps_eq!(points_ok[i], points_5.points[i], max_ulps = 4));
