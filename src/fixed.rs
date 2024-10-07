@@ -526,12 +526,12 @@ pub mod d2 {
                 Some(bounds) => {
                     let (a, b, c, d) = bounds;
                     let (umin, umax, vmin, vmax) = self.bounds;
-                    let jac_u = (umax - umin) / (b - a);
-                    let jac_v = (vmax - vmin) / (d - c);
+                    let jac_u = (b - a) / (umax - umin);
+                    let jac_v = (d - c) / (vmax - vmin);
 
                     for i in 0..self.points_weights.len() / 3 {
-                        let xi1 = umin + jac_u * (self.points_weights[3 * i] - a);
-                        let xi2 = vmin + jac_v * (self.points_weights[3 * i + 1] - a);
+                        let xi1 = a + jac_u * (self.points_weights[3 * i] - umin);
+                        let xi2 = c + jac_v * (self.points_weights[3 * i + 1] - vmin);
                         let wi = self.points_weights[3 * i + 2];
                         integral += f(xi1, xi2) * wi;
                     }
