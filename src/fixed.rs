@@ -12,6 +12,7 @@
 
 //{{{ crate imports
 use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuadType};
+use crate::common::{OptionsError, OptionsStruct, append_reason};
 //}}}
 //{{{ std imports
 //}}}
@@ -42,6 +43,46 @@ pub mod d1 {
         /// Optional subdivision points to use within the integration region.
         pub subdiv: Option<Vec<f64>>,
     }
+    //}}}
+    //{{{ impl OptionsStruct for FixedQuadOpts
+    impl  OptionsStruct for FixedQuadOpts {
+        fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
+
+            let mut ok = true;
+            let mut err = if full {
+                OptionsError::InvalidOptionsFull(String::new())
+            }
+            else {
+                OptionsError::InvalidOptionsShort
+            };
+
+            if self.bounds.0 > self.bounds.1 {
+                ok = false;
+                append_reason(&mut err, "Bounds invalid, low bound greater than high bound");
+            }
+
+            if let Some(ref v) = self.subdiv {
+                if v.is_empty() {
+                    append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
+                    ok = false
+                }
+                for i in 0..v.len() {
+                    if v[i] <= self.bounds.0 || v[i] >= self.bounds.1 {
+                        append_reason(&mut err, "Initial subdivisions invalid, must be inside bounds");
+                        ok = false;
+                        break;
+                    }
+                }
+            }
+
+            if ok {
+                Ok(())
+            } else {
+                Err(err)
+            }
+        }
+        
+    }    
     //}}}
     //{{{ struct: FixedQuad
     #[derive(Debug)]
@@ -217,7 +258,7 @@ pub mod d1 {
     //{{{ mod: tests
     #[cfg(test)]
     mod tests {
-
+        //{{{ collection: imports
         use super::*;
         use approx::assert_relative_eq;
         
@@ -225,7 +266,8 @@ pub mod d1 {
         use std::fs;
 
         const MAX_REL: f64 = 1e-14;
-
+        //}}}
+        //{{{ collection: test data
         #[derive(Deserialize)]
         struct PolyIntegralTestData3 {
             coeffs: Vec<f64>,
@@ -266,7 +308,31 @@ pub mod d1 {
                 serde_json::from_str(&json_file).expect("Could not deserialize")
             }
         }
+        //}}}
+        //{{{ collection: misc tests
+        #[test]
+        fn test_fixed_quad_opts() {
+            let opts = FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 1,
+                bounds: (1.0, 0.0),
+                subdiv: Some(Vec::<f64>::new()),
+            };
 
+            let is_ok = opts.is_ok(true);
+            assert!(is_ok.is_err());
+            match is_ok {
+                Ok(_) => panic!("Expected error"),
+                Err(err) => {
+                    assert_eq!(err.to_string(), 
+                    "The options are invalid with reasons:\
+                    \n\tBounds invalid, low bound greater than high bound\
+                    \n\tInitial subdivisions invalid, must be non-empty");
+                }
+            }
+        }
+        //}}}
+        //{{{ collection: legendre tests
         macro_rules! poly_integral_legendre_test {
             ($test_name: ident, $dataset: ident, $nqp: expr) => {
                 #[test]
@@ -344,7 +410,8 @@ pub mod d1 {
         poly_integral_legendre_test!(poly_integral_legendre_test26, p7, 5);
         poly_integral_legendre_test!(poly_integral_legendre_test27, p8, 5);
         poly_integral_legendre_test!(poly_integral_legendre_test28, p9, 5);
-
+        //}}}
+        //{{{ collection: lobatto tests
         macro_rules! poly_integral_lobatto_test {
             ($test_name: ident, $dataset: ident, $nqp: expr) => {
                 #[test]
@@ -414,6 +481,7 @@ pub mod d1 {
         poly_integral_lobatto_test!(poly_integral_lobatto_test24, p5, 5);
         poly_integral_lobatto_test!(poly_integral_lobatto_test25, p6, 5);
         poly_integral_lobatto_test!(poly_integral_lobatto_test26, p7, 5);
+        //}}}
     }
     //}}}
 }
@@ -436,6 +504,53 @@ pub mod d2 {
         pub bounds: (f64, f64, f64, f64),
         /// Optional Subdivision of the integration region in order ``(u, v)``
         pub subdiv: Option<(Vec<f64>, Vec<f64>)>,
+    }
+    //}}}
+    //{{{ impl: OptionsStruct for FixedQuadOpts
+    impl OptionsStruct for FixedQuadOpts {
+        fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
+
+            let mut ok = true;
+            let mut err = if full {
+                OptionsError::InvalidOptionsFull(String::new())
+            }
+            else {
+                OptionsError::InvalidOptionsShort
+            };
+
+
+            if self.bounds.0 > self.bounds.1 || self.bounds.2 > self.bounds.3 {
+                ok = false;
+                append_reason(&mut err, "Bounds invalid, low bound greater than high bound");
+            }
+
+            if let Some(subdiv) = &self.subdiv{
+                if subdiv.0.is_empty() && subdiv.1.is_empty() {
+                    ok = false;
+                    append_reason(&mut err, "Initial subdivision invalid, at least 1 must be non-empty");
+                }
+
+                for u in &subdiv.0 {
+                    if *u < self.bounds.0 || *u > self.bounds.1 {
+                        ok = false;
+                        append_reason(&mut err, "Initial subdivision invalid, must be within bounds");
+                    }
+                }
+                for v in &subdiv.1 {
+                    if *v < self.bounds.2 || *v > self.bounds.3 {
+                        ok = false;
+                        append_reason(&mut err, "Initial subdivision invalid, must be within bounds");
+                    }
+                }
+            }
+
+            if ok {
+                Ok(())
+            }
+            else {
+                Err(err)
+            }
+        }
     }
     //}}}
     //{{{ struct: FixedQuad
@@ -617,6 +732,52 @@ pub mod d2 {
                 let json_file = fs::read_to_string("assets/poly-integrals-2d.json")
                     .expect("Unable to read file");
                 serde_json::from_str(&json_file).expect("Could not deserialize")
+            }
+        }
+        //}}}
+        //{{{ collection: misc tests
+        #[test]
+        fn test_fixed_quad_opts1() {
+            let opts = d2::FixedQuadOpts {
+                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                order: (2, 2),
+                bounds: (2.0, 0.0, 2.0, 0.0),
+                subdiv: Some((Vec::<f64>::new(), Vec::new())),
+            };
+
+            let is_ok = opts.is_ok(true);
+            assert!(is_ok.is_err());
+            match is_ok {
+                Ok(_) => panic!("Expected error"),
+                Err(err) => {
+                    assert_eq!(err.to_string(), 
+                    "The options are invalid with reasons:\
+                    \n\tBounds invalid, low bound greater than high bound\
+                    \n\tInitial subdivision invalid, at least 1 must be non-empty");
+                
+                }
+            }
+        }
+
+        #[test]
+        fn test_fixed_quad_opts2() {
+            let opts = d2::FixedQuadOpts {
+                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                order: (2, 2),
+                bounds: (1.0, 2.0, 1.0, 2.0),
+                subdiv: Some((vec![0.0], vec![0.0])),
+            };
+
+            let is_ok = opts.is_ok(true);
+            assert!(is_ok.is_err());
+            match is_ok {
+                Ok(_) => panic!("Expected error"),
+                Err(err) => {
+                    assert_eq!(err.to_string(), 
+                    "The options are invalid with reasons:\
+                    \n\tInitial subdivision invalid, must be within bounds\
+                    \n\tInitial subdivision invalid, must be within bounds");
+                }
             }
         }
         //}}}

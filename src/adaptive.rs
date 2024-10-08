@@ -106,9 +106,6 @@ pub mod d1 {
                     }
                 }
             }
-
-
-              
             if ok {
                 Ok(())
             } else {
@@ -922,7 +919,6 @@ pub mod d2 {
             };
 
             let res = d2::adaptive_quad(&f, &opts);
-            println!("res = {:?}", res);
             let true_integral = -2.0 * 30.0f64.cos() + 30.0f64.cos().powi(2) + 1.0;
 
             let err_ub = (res.num_subdiv as f64) * opts.tol;
@@ -971,7 +967,6 @@ pub mod d2 {
             {
                 opts.init_subdiv = Some((vec![-1.0], vec![2.0]));
                 let res = d2::adaptive_quad(&f, &opts);
-                println!("res = {:?}", res);
                 let err_ub = (res.num_subdiv as f64) * opts.tol;
                 assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
                 assert!(res.error_estimate < err_ub);
