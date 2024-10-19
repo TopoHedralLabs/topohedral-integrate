@@ -817,9 +817,18 @@ pub mod d2 {
     #[cfg(test)]
     mod tests
     {
+        //! Some notes on the tests:
+        //! - We use absolute difference using the error upper bound as that is the guarantee 
+        //!   that this function provides. We do this rather than use a relative error. 
+        //! 
+        //! 
+        
         use super::*;
         use approx::{assert_abs_diff_eq, assert_relative_eq};
-        use nalgebra::coordinates::X;
+
+
+
+
 
 
         #[test]
