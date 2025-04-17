@@ -1,4 +1,7 @@
 #!/bin/zsh
-export RUSTDOCFLAGS="--html-in-header $(pwd)/docs/html/custom-header.html"
-export CARGO_FEATURE_ENABLE_TRACE=1
-export TOPO_LOG=d2=debug
+
+
+export CARGO_REGISTRIES_CLOUDSMITH_TOKEN=$(op read "op://dev/cloudsmith-api-key1/credential")
+
+token=$(op read "op://dev/cloudsmith-default-token/credential")
+export CARGO_REGISTRIES_CLOUDSMITH_INDEX="https://dl.cloudsmith.io/$token/topohedrallabs/topohedral/cargo/index.git"
