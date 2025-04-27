@@ -11,8 +11,8 @@
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports
+use crate::common::{append_reason, OptionsError, OptionsStruct};
 use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuadType};
-use crate::common::{OptionsError, OptionsStruct, append_reason};
 //}}}
 //{{{ std imports
 //}}}
@@ -45,20 +45,21 @@ pub mod d1 {
     }
     //}}}
     //{{{ impl OptionsStruct for FixedQuadOpts
-    impl  OptionsStruct for FixedQuadOpts {
+    impl OptionsStruct for FixedQuadOpts {
         fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
-
             let mut ok = true;
             let mut err = if full {
                 OptionsError::InvalidOptionsFull(String::new())
-            }
-            else {
+            } else {
                 OptionsError::InvalidOptionsShort
             };
 
             if self.bounds.0 > self.bounds.1 {
                 ok = false;
-                append_reason(&mut err, "Bounds invalid, low bound greater than high bound");
+                append_reason(
+                    &mut err,
+                    "Bounds invalid, low bound greater than high bound",
+                );
             }
 
             if let Some(ref v) = self.subdiv {
@@ -68,7 +69,10 @@ pub mod d1 {
                 }
                 for i in 0..v.len() {
                     if v[i] <= self.bounds.0 || v[i] >= self.bounds.1 {
-                        append_reason(&mut err, "Initial subdivisions invalid, must be inside bounds");
+                        append_reason(
+                            &mut err,
+                            "Initial subdivisions invalid, must be inside bounds",
+                        );
                         ok = false;
                         break;
                     }
@@ -81,8 +85,7 @@ pub mod d1 {
                 Err(err)
             }
         }
-        
-    }    
+    }
     //}}}
     //{{{ struct: FixedQuad
     #[derive(Debug)]
@@ -175,8 +178,7 @@ pub mod d1 {
                         points_weights.push(xi);
                         points_weights.push(wi);
                     }
-                }
-                //}}}
+                } //}}}
             }
             //}}}
             //{{{ ret
@@ -261,7 +263,7 @@ pub mod d1 {
         //{{{ collection: imports
         use super::*;
         use approx::assert_relative_eq;
-        
+
         use serde::Deserialize;
         use std::fs;
 
@@ -324,10 +326,12 @@ pub mod d1 {
             match is_ok {
                 Ok(_) => panic!("Expected error"),
                 Err(err) => {
-                    assert_eq!(err.to_string(), 
-                    "The options are invalid with reasons:\
+                    assert_eq!(
+                        err.to_string(),
+                        "The options are invalid with reasons:\
                     \n\tBounds invalid, low bound greater than high bound\
-                    \n\tInitial subdivisions invalid, must be non-empty");
+                    \n\tInitial subdivisions invalid, must be non-empty"
+                    );
                 }
             }
         }
@@ -509,45 +513,53 @@ pub mod d2 {
     //{{{ impl: OptionsStruct for FixedQuadOpts
     impl OptionsStruct for FixedQuadOpts {
         fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
-
             let mut ok = true;
             let mut err = if full {
                 OptionsError::InvalidOptionsFull(String::new())
-            }
-            else {
+            } else {
                 OptionsError::InvalidOptionsShort
             };
 
-
             if self.bounds.0 > self.bounds.1 || self.bounds.2 > self.bounds.3 {
                 ok = false;
-                append_reason(&mut err, "Bounds invalid, low bound greater than high bound");
+                append_reason(
+                    &mut err,
+                    "Bounds invalid, low bound greater than high bound",
+                );
             }
 
-            if let Some(subdiv) = &self.subdiv{
+            if let Some(subdiv) = &self.subdiv {
                 if subdiv.0.is_empty() && subdiv.1.is_empty() {
                     ok = false;
-                    append_reason(&mut err, "Initial subdivision invalid, at least 1 must be non-empty");
+                    append_reason(
+                        &mut err,
+                        "Initial subdivision invalid, at least 1 must be non-empty",
+                    );
                 }
 
                 for u in &subdiv.0 {
                     if *u < self.bounds.0 || *u > self.bounds.1 {
                         ok = false;
-                        append_reason(&mut err, "Initial subdivision invalid, must be within bounds");
+                        append_reason(
+                            &mut err,
+                            "Initial subdivision invalid, must be within bounds",
+                        );
                     }
                 }
                 for v in &subdiv.1 {
                     if *v < self.bounds.2 || *v > self.bounds.3 {
                         ok = false;
-                        append_reason(&mut err, "Initial subdivision invalid, must be within bounds");
+                        append_reason(
+                            &mut err,
+                            "Initial subdivision invalid, must be within bounds",
+                        );
                     }
                 }
             }
 
             if ok {
                 Ok(())
-            }
-            else {
+            } else {
                 Err(err)
             }
         }
@@ -684,11 +696,10 @@ pub mod d2 {
     mod tests {
         //{{{ collection: imports
         use super::*;
-        use approx::{assert_relative_eq };
-        
+        use approx::assert_relative_eq;
+
         use serde::Deserialize;
         use std::fs;
-
 
         const MAX_REL: f64 = 1e-14;
         //}}}
@@ -750,11 +761,12 @@ pub mod d2 {
             match is_ok {
                 Ok(_) => panic!("Expected error"),
                 Err(err) => {
-                    assert_eq!(err.to_string(), 
-                    "The options are invalid with reasons:\
+                    assert_eq!(
+                        err.to_string(),
+                        "The options are invalid with reasons:\
                     \n\tBounds invalid, low bound greater than high bound\
-                    \n\tInitial subdivision invalid, at least 1 must be non-empty");
-                
+                    \n\tInitial subdivision invalid, at least 1 must be non-empty"
+                    );
                 }
             }
         }
@@ -773,10 +785,12 @@ pub mod d2 {
             match is_ok {
                 Ok(_) => panic!("Expected error"),
                 Err(err) => {
-                    assert_eq!(err.to_string(), 
-                    "The options are invalid with reasons:\
+                    assert_eq!(
+                        err.to_string(),
+                        "The options are invalid with reasons:\
                     \n\tInitial subdivision invalid, must be within bounds\
-                    \n\tInitial subdivision invalid, must be within bounds");
+                    \n\tInitial subdivision invalid, must be within bounds"
+                    );
                 }
             }
         }
