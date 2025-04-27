@@ -69,7 +69,7 @@ impl GaussQuadType {
 
     pub fn nqp_from_order(&self, order: usize) -> usize {
         match self {
-            Self::Legendre => (order + 1) / 2,
+            Self::Legendre => order.div_ceil(2),
             Self::Lobatto => (order + 3) / 2,
         }
     }
@@ -106,7 +106,7 @@ impl GuassQuadSet {
         // set the min and max nqp's available for the given quadrature rule
         let min_nqp = 2;
         let max_nqp = match gauss_type {
-            GaussQuadType::Legendre => (order + 1) / 2,
+            GaussQuadType::Legendre => order.div_ceil(2),
             GaussQuadType::Lobatto => (order + 3) / 2,
         };
         // preallocate the points and weights
@@ -179,7 +179,7 @@ impl GuassQuadSet {
     pub fn gauss_quad_from_order(&self, order: usize) -> GaussQuad {
         debug_assert!(order <= self.max_order);
         let nqp = match self.gauss_type {
-            GaussQuadType::Legendre => (order + 1) / 2,
+            GaussQuadType::Legendre => order.div_ceil(2),
             GaussQuadType::Lobatto => (order + 3) / 2,
         };
         self.gauss_quad_from_nqp(nqp)
@@ -218,7 +218,7 @@ impl GaussQuad {
 
     pub fn new(gauss_type: GaussQuadType, order: usize) -> Self {
         let nqp = match gauss_type {
-            GaussQuadType::Legendre => (order + 1) / 2,
+            GaussQuadType::Legendre => order.div_ceil(2),
             GaussQuadType::Lobatto => (order + 3) / 2,
         };
 

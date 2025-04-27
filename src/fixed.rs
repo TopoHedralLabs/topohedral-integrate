@@ -589,16 +589,13 @@ pub mod d2 {
             let mut u_subdiv: Option<Vec<f64>> = None;
             let mut v_subdiv: Option<Vec<f64>> = None;
 
-            match &opts.subdiv {
-                Some(subdiv) => {
-                    if !subdiv.0.is_empty() {
-                        u_subdiv = Some(subdiv.0.clone());
-                    }
-                    if !subdiv.1.is_empty() {
-                        v_subdiv = Some(subdiv.1.clone());
-                    }
+            if let Some(subdiv) = &opts.subdiv {
+                if !subdiv.0.is_empty() {
+                    u_subdiv = Some(subdiv.0.clone());
                 }
-                None => {}
+                if !subdiv.1.is_empty() {
+                    v_subdiv = Some(subdiv.1.clone());
+                }
             }
 
             let fixed_rule_u = d1::FixedQuad::new(&d1::FixedQuadOpts {

@@ -9,7 +9,6 @@
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsStruct};
 use crate::fixed as fi;
-use crate::gauss::GaussQuadType;
 //}}}
 //{{{ std imports
 //}}}
