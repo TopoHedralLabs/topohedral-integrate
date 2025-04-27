@@ -9,6 +9,7 @@
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsStruct};
 use crate::fixed as fi;
+// use crate::gauss::GaussQuadType;
 //}}}
 //{{{ std imports
 //}}}
@@ -347,9 +348,11 @@ pub mod d1 {
         //!   in a way that you can justify then change the expected values.
 
         use super::*;
-        use approx::{assert_abs_diff_eq, assert_relative_eq};
+        use approx::assert_abs_diff_eq;
+        use crate::gauss::GaussQuadType;
 
-        const MAX_REL: f64 = 1e-10;
+
+
 
         /// Test to check that the options struct finds errors
         #[test]
@@ -833,7 +836,8 @@ pub mod d2 {
         //!
 
         use super::*;
-        use approx::{assert_abs_diff_eq, assert_relative_eq};
+        use approx::assert_abs_diff_eq;
+        use crate::gauss::GaussQuadType;
 
         #[test]
         fn test_adaptive_quad_opts() {

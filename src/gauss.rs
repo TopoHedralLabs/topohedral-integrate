@@ -327,11 +327,12 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     recurrence_fcn: F,
 ) -> (Vec<f64>, Vec<f64>) {
     //{{{ init
-    let mut T = na::DMatrix::<f64>::zeros(nqp, nqp);
-    let (mut ai, mut bi, mut ci) = (0.0f64, 0.0f64, 0.0f64);
-    let (mut aj, mut bj, mut cj) = (0.0f64, 0.0f64, 0.0f64);
-    let (mut alpha_i, mut alpha_j) = (0.0f64, 0.0f64);
-    let (mut beta_i, beta_j, mut beta_h) = (0.0f64, 0.0f64, 0.0f64);
+    let mut tmat = na::DMatrix::<f64>::zeros(nqp, nqp);
+
+    let (mut ai, mut bi, mut ci): (f64, f64, f64);
+    let (mut aj, mut bj, mut cj): (f64, f64, f64);
+    let (mut alpha_i, alpha_j): (f64, f64);
+    let (mut beta_i, mut beta_h): (f64, f64);
     //}}}
     //{{{ com: deal with row 0
     {
@@ -339,8 +340,8 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
         (aj, bj, cj) = recurrence_fcn(1);
         alpha_i = -(bi / ai);
         beta_i = (cj / (ai * aj)).sqrt();
-        T[(0, 0)] = alpha_i;
-        T[(0, 1)] = beta_i;
+        tmat[(0, 0)] = alpha_i;
+        tmat[(0, 1)] = beta_i;
         beta_h = beta_i;
     }
     //}}}
@@ -351,9 +352,9 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
         alpha_i = -(bi / ai);
         beta_i = (cj / (ai * aj)).sqrt();
 
-        T[(i, i - 1)] = beta_h;
-        T[(i, i)] = alpha_i;
-        T[(i, i + 1)] = beta_i;
+        tmat[(i, i - 1)] = beta_h;
+        tmat[(i, i)] = alpha_i;
+        tmat[(i, i + 1)] = beta_i;
         beta_h = beta_i;
     }
     //}}}
@@ -363,12 +364,12 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
         (aj, bj, cj) = recurrence_fcn(nqp);
         alpha_j = -(bj / aj);
         beta_i = (cj / (ai * aj)).sqrt();
-        T[(nqp - 1, nqp - 2)] = beta_h;
-        T[(nqp - 1, nqp - 1)] = alpha_j;
+        tmat[(nqp - 1, nqp - 2)] = beta_h;
+        tmat[(nqp - 1, nqp - 1)] = alpha_j;
     }
     //}}}
     //{{{ com: eigendecompose
-    let eigen_decomp = T.symmetric_eigen();
+    let eigen_decomp = tmat.symmetric_eigen();
     //}}}
     //{{{ com: compute quadrature points and weights from eigenvalues and eigenvectors
     let qpoints: Vec<f64> = eigen_decomp.eigenvalues.iter().copied().collect();

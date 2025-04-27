@@ -289,17 +289,10 @@ pub mod d1 {
             p7: PolyIntegralTestData3,
             p8: PolyIntegralTestData3,
             p9: PolyIntegralTestData3,
-            p10: PolyIntegralTestData3,
-            p11: PolyIntegralTestData3,
-            p12: PolyIntegralTestData3,
-            p13: PolyIntegralTestData3,
-            p14: PolyIntegralTestData3,
-            p15: PolyIntegralTestData3,
         }
 
         #[derive(Deserialize)]
         struct PolyIntegralTestData1 {
-            description: String,
             values: PolyIntegralTestData2,
         }
 
@@ -414,6 +407,8 @@ pub mod d1 {
         poly_integral_legendre_test!(poly_integral_legendre_test26, p7, 5);
         poly_integral_legendre_test!(poly_integral_legendre_test27, p8, 5);
         poly_integral_legendre_test!(poly_integral_legendre_test28, p9, 5);
+        // 6-point-integrals
+
         //}}}
         //{{{ collection: lobatto tests
         macro_rules! poly_integral_lobatto_test {
@@ -721,17 +716,10 @@ pub mod d2 {
             p7: PolyIntegralTestData3,
             p8: PolyIntegralTestData3,
             p9: PolyIntegralTestData3,
-            p10: PolyIntegralTestData3,
-            p11: PolyIntegralTestData3,
-            p12: PolyIntegralTestData3,
-            p13: PolyIntegralTestData3,
-            p14: PolyIntegralTestData3,
-            p15: PolyIntegralTestData3,
         }
 
         #[derive(Deserialize)]
         struct PolyIntegralTestData1 {
-            description: String,
             values: PolyIntegralTestData2,
         }
 
