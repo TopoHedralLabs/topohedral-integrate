@@ -348,11 +348,8 @@ pub mod d1 {
         //!   in a way that you can justify then change the expected values.
 
         use super::*;
-        use approx::assert_abs_diff_eq;
         use crate::gauss::GaussQuadType;
-
-
-
+        use approx::assert_abs_diff_eq;
 
         /// Test to check that the options struct finds errors
         #[test]
@@ -836,8 +833,8 @@ pub mod d2 {
         //!
 
         use super::*;
-        use approx::assert_abs_diff_eq;
         use crate::gauss::GaussQuadType;
+        use approx::assert_abs_diff_eq;
 
         #[test]
         fn test_adaptive_quad_opts() {
