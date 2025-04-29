@@ -15,7 +15,6 @@ use topohedral_tracing::*;
 //}}}
 //--------------------------------------------------------------------------------------------------
 
-
 //{{{ struct: AdaptiveQuadOpts
 /// Configures the options for the adaptive quadrature algorithm.
 ///
