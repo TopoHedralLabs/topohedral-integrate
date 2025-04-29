@@ -104,8 +104,8 @@ pub mod d1 {
                     append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
                     ok = false
                 }
-                for i in 0..v.len() {
-                    if v[i] <= self.bounds.0 || v[i] >= self.bounds.1 {
+                for vi in v {
+                    if *vi <= self.bounds.0 || *vi >= self.bounds.1 {
                         append_reason(
                             &mut err,
                             "Initial subdivisions invalid, must be inside bounds",
@@ -226,8 +226,7 @@ pub mod d1 {
             }
         }
         let mut has_converged = false;
-        let mut marked = Vec::<usize>::new();
-        marked.reserve(100);
+        let mut marked = Vec::<usize>::with_capacity(100);
         let mut num_fn_eval = 0;
         let nqp = opts.fixed_rule_low.nqp() + opts.fixed_rule_high.nqp();
         //}}}
@@ -706,8 +705,7 @@ pub mod d2 {
         let mut intervals_u = Vec::<f64>::new();
         let mut intervals_v = Vec::<f64>::new();
         let mut has_converged = false;
-        let mut marked = Vec::<usize>::new();
-        marked.reserve(100);
+        let mut marked = Vec::<usize>::with_capacity(100);
         let mut num_fn_eval = 0;
         let nqp = opts.fixed_rule_low.nqp() + opts.fixed_rule_high.nqp();
         //}}}

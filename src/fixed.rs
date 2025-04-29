@@ -67,8 +67,8 @@ pub mod d1 {
                     append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
                     ok = false
                 }
-                for i in 0..v.len() {
-                    if v[i] <= self.bounds.0 || v[i] >= self.bounds.1 {
+                for vi in v {
+                    if *vi <= self.bounds.0 || *vi >= self.bounds.1 {
                         append_reason(
                             &mut err,
                             "Initial subdivisions invalid, must be inside bounds",
@@ -117,8 +117,7 @@ pub mod d1 {
             };
             let nqp = gauss_rule.nqp * num_divs;
 
-            let mut points_weights = Vec::new();
-            points_weights.reserve(nqp);
+            let mut points_weights = Vec::with_capacity(nqp);
 
             let (a, b) = gauss_rule.gauss_type.range();
             //}}}
@@ -236,8 +235,7 @@ pub mod d1 {
     impl From<GaussQuad> for FixedQuad {
         fn from(value: GaussQuad) -> Self {
             let nqp = value.nqp;
-            let mut points_weights = Vec::new();
-            points_weights.reserve(nqp * 2);
+            let mut points_weights = Vec::with_capacity(nqp * 2);
 
             for i in 0..nqp {
                 let xi = value.points[i];
@@ -608,8 +606,7 @@ pub mod d2 {
             });
 
             let nqp = fixed_rule_u.nqp() * fixed_rule_v.nqp();
-            let mut points_weights = Vec::<f64>::new();
-            points_weights.reserve(3 * nqp);
+            let mut points_weights = Vec::<f64>::with_capacity(3 * nqp);
 
             for i in 0..fixed_rule_u.nqp() {
                 let xi = fixed_rule_u.points_weights[2 * i];

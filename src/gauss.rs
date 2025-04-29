@@ -329,16 +329,16 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     //{{{ init
     let mut tmat = na::DMatrix::<f64>::zeros(nqp, nqp);
 
-    let (mut ai, mut bi, mut _ci): (f64, f64, f64);
+    let (mut ai, mut _bi, mut _ci): (f64, f64, f64);
     let (mut aj, mut _bj, mut cj): (f64, f64, f64);
     let (mut alpha_i, alpha_j): (f64, f64);
     let (mut beta_i, mut beta_h): (f64, f64);
     //}}}
     //{{{ com: deal with row 0
     {
-        (ai, bi, _ci) = recurrence_fcn(0);
+        (ai, _bi, _ci) = recurrence_fcn(0);
         (aj, _bj, cj) = recurrence_fcn(1);
-        alpha_i = -(bi / ai);
+        alpha_i = -(_bi / ai);
         beta_i = (cj / (ai * aj)).sqrt();
         tmat[(0, 0)] = alpha_i;
         tmat[(0, 1)] = beta_i;
@@ -347,9 +347,9 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     //}}}
     //{{{ com: deal with rows 1 to nqp-2
     for i in 1..nqp - 1 {
-        (ai, bi, _ci) = recurrence_fcn(i);
+        (ai, _bi, _ci) = recurrence_fcn(i);
         (aj, _bj, cj) = recurrence_fcn(i + 1);
-        alpha_i = -(bi / ai);
+        alpha_i = -(_bi / ai);
         beta_i = (cj / (ai * aj)).sqrt();
 
         tmat[(i, i - 1)] = beta_h;
@@ -360,10 +360,9 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     //}}}
     //{{{ com: deal with row nqp-1
     {
-        (ai, bi, _ci) = recurrence_fcn(nqp - 1);
-        (aj, _bj, cj) = recurrence_fcn(nqp);
+        (_, _bi, _ci) = recurrence_fcn(nqp - 1);
+        (aj, _bj, _) = recurrence_fcn(nqp);
         alpha_j = -(_bj / aj);
-        beta_i = (cj / (ai * aj)).sqrt();
         tmat[(nqp - 1, nqp - 2)] = beta_h;
         tmat[(nqp - 1, nqp - 1)] = alpha_j;
     }
@@ -519,7 +518,6 @@ mod tests {
 
     #[derive(Deserialize)]
     struct GaussQuadTest2 {
-        description: String,
         values: GaussQuadTest3,
     }
 
