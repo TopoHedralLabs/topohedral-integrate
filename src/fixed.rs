@@ -11,8 +11,8 @@
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports
+use crate::common::{append_reason, OptionsError, OptionsStruct};
 use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuadType};
-use crate::common::{OptionsError, OptionsStruct, append_reason};
 //}}}
 //{{{ std imports
 //}}}
@@ -45,20 +45,21 @@ pub mod d1 {
     }
     //}}}
     //{{{ impl OptionsStruct for FixedQuadOpts
-    impl  OptionsStruct for FixedQuadOpts {
+    impl OptionsStruct for FixedQuadOpts {
         fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
-
             let mut ok = true;
             let mut err = if full {
                 OptionsError::InvalidOptionsFull(String::new())
-            }
-            else {
+            } else {
                 OptionsError::InvalidOptionsShort
             };
 
             if self.bounds.0 > self.bounds.1 {
                 ok = false;
-                append_reason(&mut err, "Bounds invalid, low bound greater than high bound");
+                append_reason(
+                    &mut err,
+                    "Bounds invalid, low bound greater than high bound",
+                );
             }
 
             if let Some(ref v) = self.subdiv {
@@ -66,9 +67,12 @@ pub mod d1 {
                     append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
                     ok = false
                 }
-                for i in 0..v.len() {
-                    if v[i] <= self.bounds.0 || v[i] >= self.bounds.1 {
-                        append_reason(&mut err, "Initial subdivisions invalid, must be inside bounds");
+                for vi in v {
+                    if *vi <= self.bounds.0 || *vi >= self.bounds.1 {
+                        append_reason(
+                            &mut err,
+                            "Initial subdivisions invalid, must be inside bounds",
+                        );
                         ok = false;
                         break;
                     }
@@ -81,8 +85,7 @@ pub mod d1 {
                 Err(err)
             }
         }
-        
-    }    
+    }
     //}}}
     //{{{ struct: FixedQuad
     #[derive(Debug)]
@@ -114,8 +117,7 @@ pub mod d1 {
             };
             let nqp = gauss_rule.nqp * num_divs;
 
-            let mut points_weights = Vec::new();
-            points_weights.reserve(nqp);
+            let mut points_weights = Vec::with_capacity(nqp);
 
             let (a, b) = gauss_rule.gauss_type.range();
             //}}}
@@ -175,8 +177,7 @@ pub mod d1 {
                         points_weights.push(xi);
                         points_weights.push(wi);
                     }
-                }
-                //}}}
+                } //}}}
             }
             //}}}
             //{{{ ret
@@ -234,8 +235,7 @@ pub mod d1 {
     impl From<GaussQuad> for FixedQuad {
         fn from(value: GaussQuad) -> Self {
             let nqp = value.nqp;
-            let mut points_weights = Vec::new();
-            points_weights.reserve(nqp * 2);
+            let mut points_weights = Vec::with_capacity(nqp * 2);
 
             for i in 0..nqp {
                 let xi = value.points[i];
@@ -261,7 +261,7 @@ pub mod d1 {
         //{{{ collection: imports
         use super::*;
         use approx::assert_relative_eq;
-        
+
         use serde::Deserialize;
         use std::fs;
 
@@ -287,17 +287,10 @@ pub mod d1 {
             p7: PolyIntegralTestData3,
             p8: PolyIntegralTestData3,
             p9: PolyIntegralTestData3,
-            p10: PolyIntegralTestData3,
-            p11: PolyIntegralTestData3,
-            p12: PolyIntegralTestData3,
-            p13: PolyIntegralTestData3,
-            p14: PolyIntegralTestData3,
-            p15: PolyIntegralTestData3,
         }
 
         #[derive(Deserialize)]
         struct PolyIntegralTestData1 {
-            description: String,
             values: PolyIntegralTestData2,
         }
 
@@ -324,10 +317,12 @@ pub mod d1 {
             match is_ok {
                 Ok(_) => panic!("Expected error"),
                 Err(err) => {
-                    assert_eq!(err.to_string(), 
-                    "The options are invalid with reasons:\
+                    assert_eq!(
+                        err.to_string(),
+                        "The options are invalid with reasons:\
                     \n\tBounds invalid, low bound greater than high bound\
-                    \n\tInitial subdivisions invalid, must be non-empty");
+                    \n\tInitial subdivisions invalid, must be non-empty"
+                    );
                 }
             }
         }
@@ -410,6 +405,8 @@ pub mod d1 {
         poly_integral_legendre_test!(poly_integral_legendre_test26, p7, 5);
         poly_integral_legendre_test!(poly_integral_legendre_test27, p8, 5);
         poly_integral_legendre_test!(poly_integral_legendre_test28, p9, 5);
+        // 6-point-integrals
+
         //}}}
         //{{{ collection: lobatto tests
         macro_rules! poly_integral_lobatto_test {
@@ -509,45 +506,53 @@ pub mod d2 {
     //{{{ impl: OptionsStruct for FixedQuadOpts
     impl OptionsStruct for FixedQuadOpts {
         fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
-
             let mut ok = true;
             let mut err = if full {
                 OptionsError::InvalidOptionsFull(String::new())
-            }
-            else {
+            } else {
                 OptionsError::InvalidOptionsShort
             };
 
-
             if self.bounds.0 > self.bounds.1 || self.bounds.2 > self.bounds.3 {
                 ok = false;
-                append_reason(&mut err, "Bounds invalid, low bound greater than high bound");
+                append_reason(
+                    &mut err,
+                    "Bounds invalid, low bound greater than high bound",
+                );
             }
 
-            if let Some(subdiv) = &self.subdiv{
+            if let Some(subdiv) = &self.subdiv {
                 if subdiv.0.is_empty() && subdiv.1.is_empty() {
                     ok = false;
-                    append_reason(&mut err, "Initial subdivision invalid, at least 1 must be non-empty");
+                    append_reason(
+                        &mut err,
+                        "Initial subdivision invalid, at least 1 must be non-empty",
+                    );
                 }
 
                 for u in &subdiv.0 {
                     if *u < self.bounds.0 || *u > self.bounds.1 {
                         ok = false;
-                        append_reason(&mut err, "Initial subdivision invalid, must be within bounds");
+                        append_reason(
+                            &mut err,
+                            "Initial subdivision invalid, must be within bounds",
+                        );
                     }
                 }
                 for v in &subdiv.1 {
                     if *v < self.bounds.2 || *v > self.bounds.3 {
                         ok = false;
-                        append_reason(&mut err, "Initial subdivision invalid, must be within bounds");
+                        append_reason(
+                            &mut err,
+                            "Initial subdivision invalid, must be within bounds",
+                        );
                     }
                 }
             }
 
             if ok {
                 Ok(())
-            }
-            else {
+            } else {
                 Err(err)
             }
         }
@@ -577,16 +582,13 @@ pub mod d2 {
             let mut u_subdiv: Option<Vec<f64>> = None;
             let mut v_subdiv: Option<Vec<f64>> = None;
 
-            match &opts.subdiv {
-                Some(subdiv) => {
-                    if !subdiv.0.is_empty() {
-                        u_subdiv = Some(subdiv.0.clone());
-                    }
-                    if !subdiv.1.is_empty() {
-                        v_subdiv = Some(subdiv.1.clone());
-                    }
+            if let Some(subdiv) = &opts.subdiv {
+                if !subdiv.0.is_empty() {
+                    u_subdiv = Some(subdiv.0.clone());
                 }
-                None => {}
+                if !subdiv.1.is_empty() {
+                    v_subdiv = Some(subdiv.1.clone());
+                }
             }
 
             let fixed_rule_u = d1::FixedQuad::new(&d1::FixedQuadOpts {
@@ -604,8 +606,7 @@ pub mod d2 {
             });
 
             let nqp = fixed_rule_u.nqp() * fixed_rule_v.nqp();
-            let mut points_weights = Vec::<f64>::new();
-            points_weights.reserve(3 * nqp);
+            let mut points_weights = Vec::<f64>::with_capacity(3 * nqp);
 
             for i in 0..fixed_rule_u.nqp() {
                 let xi = fixed_rule_u.points_weights[2 * i];
@@ -684,11 +685,10 @@ pub mod d2 {
     mod tests {
         //{{{ collection: imports
         use super::*;
-        use approx::{assert_relative_eq };
-        
+        use approx::assert_relative_eq;
+
         use serde::Deserialize;
         use std::fs;
-
 
         const MAX_REL: f64 = 1e-14;
         //}}}
@@ -713,17 +713,10 @@ pub mod d2 {
             p7: PolyIntegralTestData3,
             p8: PolyIntegralTestData3,
             p9: PolyIntegralTestData3,
-            p10: PolyIntegralTestData3,
-            p11: PolyIntegralTestData3,
-            p12: PolyIntegralTestData3,
-            p13: PolyIntegralTestData3,
-            p14: PolyIntegralTestData3,
-            p15: PolyIntegralTestData3,
         }
 
         #[derive(Deserialize)]
         struct PolyIntegralTestData1 {
-            description: String,
             values: PolyIntegralTestData2,
         }
 
@@ -750,11 +743,12 @@ pub mod d2 {
             match is_ok {
                 Ok(_) => panic!("Expected error"),
                 Err(err) => {
-                    assert_eq!(err.to_string(), 
-                    "The options are invalid with reasons:\
+                    assert_eq!(
+                        err.to_string(),
+                        "The options are invalid with reasons:\
                     \n\tBounds invalid, low bound greater than high bound\
-                    \n\tInitial subdivision invalid, at least 1 must be non-empty");
-                
+                    \n\tInitial subdivision invalid, at least 1 must be non-empty"
+                    );
                 }
             }
         }
@@ -773,10 +767,12 @@ pub mod d2 {
             match is_ok {
                 Ok(_) => panic!("Expected error"),
                 Err(err) => {
-                    assert_eq!(err.to_string(), 
-                    "The options are invalid with reasons:\
+                    assert_eq!(
+                        err.to_string(),
+                        "The options are invalid with reasons:\
                     \n\tInitial subdivision invalid, must be within bounds\
-                    \n\tInitial subdivision invalid, must be within bounds");
+                    \n\tInitial subdivision invalid, must be within bounds"
+                    );
                 }
             }
         }

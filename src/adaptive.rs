@@ -1,15 +1,15 @@
-//! This module contains the implementation of adaptive quadrature rules for both 1D and 2D. 
+//! This module contains the implementation of adaptive quadrature rules for both 1D and 2D.
 //!
-//! The entry point for the 1D adaptive quadrature algorithm is the `adaptive_quad` function, which 
+//! The entry point for the 1D adaptive quadrature algorithm is the `adaptive_quad` function, which
 //! resides in the `d1` module along with its options and results structs.
-//! 
+//!
 //! The entry point
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports
-use crate::gauss::GaussQuadType;
+use crate::common::{append_reason, OptionsError, OptionsStruct};
 use crate::fixed as fi;
-use crate::common::{OptionsStruct, OptionsError, append_reason};
+// use crate::gauss::GaussQuadType;
 //}}}
 //{{{ std imports
 //}}}
@@ -37,11 +37,11 @@ pub mod d1 {
     /// high-order Gauss quadrature rules to use, respectively. The `tol` field sets the
     /// error tolerance for the integration, and the `max_depth` field sets the maximum
     /// number of subdivisions allowed.
-    /// 
-    /// Additionally the `init_subdiv` field can be used to provide an initial set of subdivisions, 
-    /// this can be useful if the user possesses some prior knowledge about the function, such 
-    /// as the location of any singularities and discontinuities. Generally, if subdivisions 
-    /// contain only smooth regions, the algorithm will converge quickly. 
+    ///
+    /// Additionally the `init_subdiv` field can be used to provide an initial set of subdivisions,
+    /// this can be useful if the user possesses some prior knowledge about the function, such
+    /// as the location of any singularities and discontinuities. Generally, if subdivisions
+    /// contain only smooth regions, the algorithm will converge quickly.
     #[derive(Debug)]
     pub struct AdaptiveQuadOpts {
         /// bounds of the integral
@@ -54,32 +54,35 @@ pub mod d1 {
         pub tol: f64,
         /// Maximum number of subdivisions
         pub max_depth: usize,
-        /// Optional initial subdivisions, provided as a set of stricty increasing values inside the 
+        /// Optional initial subdivisions, provided as a set of stricty increasing values inside the
         /// range provided by `bounds`. Do not include the bounds themselves.
         pub init_subdiv: Option<Vec<f64>>,
     }
     //}}}
-    //{{{ impl: OptionsStruct for AdaptiveQuadOpts  
+    //{{{ impl: OptionsStruct for AdaptiveQuadOpts
     impl OptionsStruct for AdaptiveQuadOpts {
         fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
-
             let mut ok = true;
 
             let mut err = if full {
                 OptionsError::InvalidOptionsFull(String::new())
-            } 
-            else {
+            } else {
                 OptionsError::InvalidOptionsShort
             };
 
             if self.bounds.0 >= self.bounds.1 {
-                append_reason(&mut err, "Bounds invalid, low bound greater than high bound");    
+                append_reason(
+                    &mut err,
+                    "Bounds invalid, low bound greater than high bound",
+                );
                 ok = false;
             }
 
-
             if self.fixed_rule_low.order >= self.fixed_rule_high.order {
-                append_reason(&mut err, "Gauss rule order mismatch, low order greater than high order");
+                append_reason(
+                    &mut err,
+                    "Gauss rule order mismatch, low order greater than high order",
+                );
                 ok = false;
             }
 
@@ -89,7 +92,10 @@ pub mod d1 {
             }
 
             if self.max_depth == 0 {
-                append_reason(&mut err, "Maximum number of subdivisions invalid, must be positive");
+                append_reason(
+                    &mut err,
+                    "Maximum number of subdivisions invalid, must be positive",
+                );
                 ok = false;
             }
 
@@ -98,9 +104,12 @@ pub mod d1 {
                     append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
                     ok = false
                 }
-                for i in 0..v.len() {
-                    if v[i] <= self.bounds.0 || v[i] >= self.bounds.1 {
-                        append_reason(&mut err, "Initial subdivisions invalid, must be inside bounds");
+                for vi in v {
+                    if *vi <= self.bounds.0 || *vi >= self.bounds.1 {
+                        append_reason(
+                            &mut err,
+                            "Initial subdivisions invalid, must be inside bounds",
+                        );
                         ok = false;
                         break;
                     }
@@ -115,7 +124,7 @@ pub mod d1 {
     }
     //}}}
     //{{{ struct: AdaptiveQuadResult
-    /// The result of the adaptive quadrature algorithm, including diagnostic information such as 
+    /// The result of the adaptive quadrature algorithm, including diagnostic information such as
     /// the number of subdivisions, the error estimate and the number of function evaluations.
     #[derive(Debug)]
     pub struct AdaptiveQuadResult {
@@ -144,51 +153,51 @@ pub mod d1 {
     }
     //}}}
     //{{{ fun: adaptive_quad
-    /// Performs adaptive quadrature integration on the given function `f` using the options 
-    /// specified in `opts`. 
-    /// 
-    /// Given a real-valued function of single variable $f(x): \mathbb{R} \rightarrow \mathbb{R}$ this 
+    /// Performs adaptive quadrature integration on the given function `f` using the options
+    /// specified in `opts`.
+    ///
+    /// Given a real-valued function of single variable $f(x): \mathbb{R} \rightarrow \mathbb{R}$ this
     /// function will return an approximation of the integral of the function over the interval
     /// \\[
     ///     I \approx  \int_{a}^{b} f(x) dx
     /// \\]
-    /// 
-    /// # Parameters
-    /// - `f`: Real-valued function of single variable $f(x)$. Note that the function is of type 
-    ///   `Fn(f64) -> f64` therefore it must not alter its internal state when called.
-    /// - `AdaptiveQuadOpts`: this struct contains the necessary configuration for the adaptive 
-    ///    quadrature algorithm, including the integration bounds, the Gauss quadrature rules to 
-    ///    use, the error tolerance, and the maximum number of subdivisions.
-    /// 
-    /// # Returns 
     ///
-    /// The `AdaptiveQuadResult` struct, which contains the result of the integration, including the 
-    /// integral value, the error estimate, the number of subdivisions, and the number of function 
+    /// # Parameters
+    /// - `f`: Real-valued function of single variable $f(x)$. Note that the function is of type
+    ///   `Fn(f64) -> f64` therefore it must not alter its internal state when called.
+    /// - `AdaptiveQuadOpts`: this struct contains the necessary configuration for the adaptive
+    ///    quadrature algorithm, including the integration bounds, the Gauss quadrature rules to
+    ///    use, the error tolerance, and the maximum number of subdivisions.
+    ///
+    /// # Returns
+    ///
+    /// The `AdaptiveQuadResult` struct, which contains the result of the integration, including the
+    /// integral value, the error estimate, the number of subdivisions, and the number of function
     /// evaluations.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ## Example 1
-    /// In this example we integrate the function $f(x) = 7x^4 - 2x^3 - 11x^2 + 15x + 1$ over the 
+    /// In this example we integrate the function $f(x) = 7x^4 - 2x^3 - 11x^2 + 15x + 1$ over the
     /// inteval $[-3, 10]$. We use Gauss-Legendre qadrature rules of order 10 and 30, respectively.
     /// ```
     /// use topohedral_integrate::fixed as fi;
-    /// use topohedral_integrate::adaptive::d1; 
+    /// use topohedral_integrate::adaptive::d1;
     /// use topohedral_integrate::gauss::{GaussQuad, GaussQuadType};
-    /// 
+    ///
     /// let f =  |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
     /// let opts = d1::AdaptiveQuadOpts {
-    ///     bounds: (-3.0, 10.0), 
+    ///     bounds: (-3.0, 10.0),
     ///         fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
     ///         gauss_type: GaussQuadType::Legendre,
-    ///         order: 10, 
-    ///         bounds: (-1.0, 1.0), 
+    ///         order: 10,
+    ///         bounds: (-1.0, 1.0),
     ///         subdiv: None,    
     ///     }),
     ///     fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
     ///         gauss_type: GaussQuadType::Legendre,
-    ///         order: 30, 
-    ///         bounds: (-1.0, 1.0), 
+    ///         order: 30,
+    ///         bounds: (-1.0, 1.0),
     ///         subdiv:None,    
     ///     }),
     ///     tol: 1e-5,
@@ -197,11 +206,12 @@ pub mod d1 {
     ///  };
     /// let res = d1::adaptive_quad(&f, &opts);
     /// ```
+    #[allow(clippy::doc_overindented_list_items)]
     pub fn adaptive_quad<F: Fn(f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> AdaptiveQuadResult {
         //{{{ trace
         info!("opts: {:?}", opts);
         //}}}
-        //{{{ init 
+        //{{{ init
         let non_val = -1.0f64;
         let mut intervals = Vec::<[f64; 4]>::new();
         match &opts.init_subdiv {
@@ -217,8 +227,7 @@ pub mod d1 {
             }
         }
         let mut has_converged = false;
-        let mut marked = Vec::<usize>::new();
-        marked.reserve(100);
+        let mut marked = Vec::<usize>::with_capacity(100);
         let mut num_fn_eval = 0;
         let nqp = opts.fixed_rule_low.nqp() + opts.fixed_rule_high.nqp();
         //}}}
@@ -226,11 +235,14 @@ pub mod d1 {
         let mut iter = 0;
         while !has_converged {
             //{{{ trace
-            debug!("================================================== iter = {}", iter);
+            debug!(
+                "================================================== iter = {}",
+                iter
+            );
             //}}}
             //{{{ com: compute error estimates, mark intervals for splitting
             //{{{ trace
-            debug!("Computing error estimates, marking intervals for splitting");   
+            debug!("Computing error estimates, marking intervals for splitting");
             //}}}
             for (i, interval) in intervals.iter_mut().enumerate() {
                 //{{{ trace
@@ -261,15 +273,12 @@ pub mod d1 {
             //{{{ trace
             debug!("Splitting marked intervals");
             //}}}
-            if marked.is_empty() 
-            {
+            if marked.is_empty() {
                 //{{{ trace
                 debug!("marked is empty, convergence has been reached");
                 //}}}
                 has_converged = true;
-            } 
-            else 
-            {
+            } else {
                 for j in &marked {
                     //{{{ trace
                     debug!("........................");
@@ -325,25 +334,22 @@ pub mod d1 {
     //-------------------------------------------------------------------------------------------------
     //{{{ mod: tests
     //{{{ note
-    // The true integrals used in these tests were computed using the sympy package in the file 
+    // The true integrals used in these tests were computed using the sympy package in the file
     // assets/adaptive-integrals-1d.py.
     //}}}
 
     #[cfg(test)]
     mod tests {
         //! Some simple guidelines for these unit tests:
-        //! 
+        //!
         //! * `assert_abs_diff_eq!` is used for comparing floats.
-        //! * We assert the number of divisions and number of function evaluations not because these 
-        //!   are correct but because we wish to detect changes in behaviour. If the behaviour changes 
+        //! * We assert the number of divisions and number of function evaluations not because these
+        //!   are correct but because we wish to detect changes in behaviour. If the behaviour changes
         //!   in a way that you can justify then change the expected values.
 
         use super::*;
-        use approx::{assert_abs_diff_eq, assert_relative_eq};
-
-
-        const MAX_REL: f64 = 1e-10;
-
+        use crate::gauss::GaussQuadType;
+        use approx::assert_abs_diff_eq;
 
         /// Test to check that the options struct finds errors
         #[test]
@@ -352,15 +358,15 @@ pub mod d1 {
                 bounds: (1.0, 0.0),
                 fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 30, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv: None,    
+                    order: 30,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 10, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv:None,    
+                    order: 10,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 tol: -1e-5,
                 max_depth: 0,
@@ -372,38 +378,36 @@ pub mod d1 {
             match is_ok {
                 Ok(_) => panic!("Expected error"),
                 Err(err) => {
-                    assert_eq!(err.to_string(), 
-                    "The options are invalid with reasons:\
+                    assert_eq!(
+                        err.to_string(),
+                        "The options are invalid with reasons:\
                     \n\tBounds invalid, low bound greater than high bound\
                     \n\tGauss rule order mismatch, low order greater than high order\
                     \n\tTolerance invalid, must be positive\
-                    \n\tMaximum number of subdivisions invalid, must be positive");
+                    \n\tMaximum number of subdivisions invalid, must be positive"
+                    );
                 }
             }
-
-
-
         }
 
-        /// Simple smooth polynomial function, should be integrated exactly to machine precision with 
+        /// Simple smooth polynomial function, should be integrated exactly to machine precision with
         /// a single interval.
         #[test]
         fn test_adaptive_quad_1() {
-
-            let f =  |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
+            let f = |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
             let opts = d1::AdaptiveQuadOpts {
-                bounds: (-3.0, 10.0), 
+                bounds: (-3.0, 10.0),
                 fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 10, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv: None,    
+                    order: 10,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 30, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv:None,    
+                    order: 30,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 tol: 1e-5,
                 max_depth: 1000,
@@ -414,15 +418,13 @@ pub mod d1 {
 
             let true_integral = 2133443.0 / 15.0;
             let err_ub = (res.num_subdiv as f64) * opts.tol;
-            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
+            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 1);
             assert_eq!(res.num_fn_eval, 20);
-
-
         }
 
-        /// Smooth but highly oscillatory function, should be integrated to tolerance with a small 
+        /// Smooth but highly oscillatory function, should be integrated to tolerance with a small
         /// nunber of intervals.
         #[test]
         fn test_adaptive_quad_2() {
@@ -431,15 +433,15 @@ pub mod d1 {
                 bounds: (0.0, 30.0),
                 fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 10, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv: None,    
+                    order: 10,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 30, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv:None,    
+                    order: 30,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 tol: 1e-5,
                 max_depth: 1000,
@@ -447,9 +449,9 @@ pub mod d1 {
             };
             let res = d1::adaptive_quad(&f, &opts);
 
-            let true_integral = 1.0 - (30.0f64).cos(); 
+            let true_integral = 1.0 - (30.0f64).cos();
             let err_ub = (res.num_subdiv as f64) * opts.tol;
-            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
+            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 8);
             assert_eq!(res.num_fn_eval, 300);
@@ -458,21 +460,20 @@ pub mod d1 {
         /// Peicewise linear function with a discontinuity at x = -1.0.
         #[test]
         fn test_adaptive_quad_3() {
-
             let f = |x: f64| (x + 1.0).abs();
             let mut opts = d1::AdaptiveQuadOpts {
                 bounds: (-3.0, 4.0),
                 fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 10, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv: None,    
+                    order: 10,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 30, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv:None,    
+                    order: 30,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 tol: 1e-5,
                 max_depth: 1000,
@@ -485,10 +486,10 @@ pub mod d1 {
 
             // no init_subdiv
             {
-                let err_ub = res1.num_subdiv as f64  * opts.tol;
+                let err_ub = res1.num_subdiv as f64 * opts.tol;
                 assert_abs_diff_eq!(res1.integral, true_integral, epsilon = err_ub);
-                assert!(res1.error_estimate < err_ub);  
-                assert_eq!(res1.num_subdiv,  8);
+                assert!(res1.error_estimate < err_ub);
+                assert_eq!(res1.num_subdiv, 8);
                 assert_eq!(res1.num_fn_eval, 300);
             }
 
@@ -497,84 +498,79 @@ pub mod d1 {
 
             // with init_subdiv
             {
-                let err_ub = res2.num_subdiv as f64  * opts.tol;
+                let err_ub = res2.num_subdiv as f64 * opts.tol;
                 assert_abs_diff_eq!(res1.integral, true_integral, epsilon = err_ub);
-                assert!(res2.error_estimate < err_ub);  
-                assert_eq!(res2.num_subdiv,  2);
+                assert!(res2.error_estimate < err_ub);
+                assert_eq!(res2.num_subdiv, 2);
                 assert_eq!(res2.num_fn_eval, 40);
             }
         }
 
         #[test]
         fn test_adaptive_quad_4() {
-
             let f = |x: f64| (-x.powi(2)).exp();
             let opts = d1::AdaptiveQuadOpts {
                 bounds: (-3.0, 3.0),
                 fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 10, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv: None,    
+                    order: 10,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 30, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv:None,    
+                    order: 30,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 tol: 1e-5,
                 max_depth: 1000,
                 init_subdiv: None,
             };
 
-            let res = d1::adaptive_quad(&f, &opts); 
+            let res = d1::adaptive_quad(&f, &opts);
 
             // sqrt(pi) * erf(3)
             let true_integral = 1.77241469651904;
             let err_ub = (res.num_subdiv as f64) * opts.tol;
-            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
+            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 4);
             assert_eq!(res.num_fn_eval, 140);
-
         }
 
         /// Logarithmic function, which is smooth on R+ but with a singular point at x = 0.0.
         #[test]
         fn test_adaptive_quad_5() {
-
             let f = |x: f64| x.ln();
             let opts = d1::AdaptiveQuadOpts {
                 bounds: (0.0, 10.0),
                 fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 10, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv: None,    
+                    order: 10,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
                     gauss_type: GaussQuadType::Legendre,
-                    order: 30, 
-                    bounds: (-1.0, 1.0), 
-                    subdiv:None,    
+                    order: 30,
+                    bounds: (-1.0, 1.0),
+                    subdiv: None,
                 }),
                 tol: 1e-5,
                 max_depth: 1000,
                 init_subdiv: None,
             };
 
-            let res = d1::adaptive_quad(&f, &opts); 
+            let res = d1::adaptive_quad(&f, &opts);
 
             let true_integral = -10.0 + 10.0 * 10.0f64.ln();
             let err_ub = (res.num_subdiv as f64) * opts.tol;
-            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
+            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 16);
             assert_eq!(res.num_fn_eval, 620);
         }
-
-        
     }
     //}}}
 }
@@ -587,8 +583,7 @@ pub mod d2 {
 
     //{{{ struct: AdaptiveQuadOpts
     #[derive(Debug)]
-    pub struct AdaptiveQuadOpts
-    {
+    pub struct AdaptiveQuadOpts {
         pub bounds: (f64, f64, f64, f64),
         pub fixed_rule_low: fi::d2::FixedQuad,
         pub fixed_rule_high: fi::d2::FixedQuad,
@@ -597,26 +592,31 @@ pub mod d2 {
         pub init_subdiv: Option<(Vec<f64>, Vec<f64>)>,
     }
     //}}}
-    //{{{ impl: OptionsStruct for AdaptiveQuadOpts  
+    //{{{ impl: OptionsStruct for AdaptiveQuadOpts
     impl OptionsStruct for AdaptiveQuadOpts {
         fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
             let mut ok = true;
 
             let mut err = if full {
                 OptionsError::InvalidOptionsFull(String::new())
-            }
-            else {
+            } else {
                 OptionsError::InvalidOptionsShort
             };
 
-            if self.bounds.0 > self.bounds.1 ||  self.bounds.2 > self.bounds.3 {
+            if self.bounds.0 > self.bounds.1 || self.bounds.2 > self.bounds.3 {
                 ok = false;
-                append_reason(&mut err, "Bounds invalid, low bound greater than high bound");
-            }   
+                append_reason(
+                    &mut err,
+                    "Bounds invalid, low bound greater than high bound",
+                );
+            }
 
             if self.fixed_rule_low.order >= self.fixed_rule_high.order {
                 ok = false;
-                append_reason(&mut err, "Gauss rule order mismatch, low order greater than high order");
+                append_reason(
+                    &mut err,
+                    "Gauss rule order mismatch, low order greater than high order",
+                );
             }
 
             if self.tol < 0.0 {
@@ -626,34 +626,44 @@ pub mod d2 {
 
             if self.max_depth == (0, 0) {
                 ok = false;
-                append_reason(&mut err, "Maximum number of subdivisions invalid, must be positive");
+                append_reason(
+                    &mut err,
+                    "Maximum number of subdivisions invalid, must be positive",
+                );
             }
-
 
             if let Some(subdiv) = &self.init_subdiv {
                 if subdiv.0.is_empty() && subdiv.1.is_empty() {
                     ok = false;
-                    append_reason(&mut err, "Initial subdivision invalid, at least 1 must be non-empty");
+                    append_reason(
+                        &mut err,
+                        "Initial subdivision invalid, at least 1 must be non-empty",
+                    );
                 }
 
                 for u in &subdiv.0 {
                     if *u < self.bounds.0 || *u > self.bounds.1 {
                         ok = false;
-                        append_reason(&mut err, "Initial subdivision invalid, must be within bounds");
+                        append_reason(
+                            &mut err,
+                            "Initial subdivision invalid, must be within bounds",
+                        );
                     }
                 }
                 for v in &subdiv.1 {
                     if *v < self.bounds.2 || *v > self.bounds.3 {
                         ok = false;
-                        append_reason(&mut err, "Initial subdivision invalid, must be within bounds");
+                        append_reason(
+                            &mut err,
+                            "Initial subdivision invalid, must be within bounds",
+                        );
                     }
                 }
             }
 
             if ok {
                 Ok(())
-            }
-            else {
+            } else {
                 Err(err)
             }
         }
@@ -682,57 +692,54 @@ pub mod d2 {
         (integral_low, err)
     }
     //}}}
-    //{{{ fun: adaptive_quad 
-    pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> AdaptiveQuadResult {
+    //{{{ fun: adaptive_quad
+    pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
+        f: &F,
+        opts: &AdaptiveQuadOpts,
+    ) -> AdaptiveQuadResult {
         //{{{ trace
-        info!("opts: {:?}", opts);  
+        info!("opts: {:?}", opts);
         //}}}
         //{{{ init
         let non_val = -1.0f64;
-        let mut intervals = Vec::<[f64; 6]>::new(); 
+        let mut intervals = Vec::<[f64; 6]>::new();
         let mut intervals_u = Vec::<f64>::new();
         let mut intervals_v = Vec::<f64>::new();
         let mut has_converged = false;
-        let mut marked = Vec::<usize>::new();
-        marked.reserve(100);
+        let mut marked = Vec::<usize>::with_capacity(100);
         let mut num_fn_eval = 0;
         let nqp = opts.fixed_rule_low.nqp() + opts.fixed_rule_high.nqp();
         //}}}
         //{{{ com: find the initial intervals in u and v
         match &opts.init_subdiv {
             Some(subdiv) => {
-
                 intervals_u.push(opts.bounds.0);
                 intervals_u.extend_from_slice(subdiv.0.as_slice());
-                intervals_u.push(opts.bounds.1);    
+                intervals_u.push(opts.bounds.1);
 
                 intervals_v.push(opts.bounds.2);
                 intervals_v.extend_from_slice(subdiv.1.as_slice());
-                intervals_v.push(opts.bounds.3);    
-
+                intervals_v.push(opts.bounds.3);
             }
             None => {
-
                 intervals_u.push(opts.bounds.0);
-                intervals_u.push(opts.bounds.1);    
+                intervals_u.push(opts.bounds.1);
 
                 intervals_v.push(opts.bounds.2);
-                intervals_v.push(opts.bounds.3);    
+                intervals_v.push(opts.bounds.3);
             }
         }
         //}}}
         //{{{ com: find the initial intevals as [ulow uhigh vlow vhigh] tuples
-        for i in 0..intervals_u.len() - 1{
+        for i in 0..intervals_u.len() - 1 {
             let ui = intervals_u[i];
             let ui_1 = intervals_u[i + 1];
 
             for j in 0..intervals_v.len() - 1 {
-
                 let vi = intervals_v[j];
-                let vi_1 = intervals_v[j + 1];  
+                let vi_1 = intervals_v[j + 1];
 
                 intervals.push([ui, ui_1, vi, vi_1, non_val, non_val]);
-
             }
         }
         //}}}
@@ -740,14 +747,17 @@ pub mod d2 {
         let mut iter = 0;
         while !has_converged {
             //{{{ trace
-            debug!("================================================== iter = {}", iter);
+            debug!(
+                "================================================== iter = {}",
+                iter
+            );
             //}}}
             //{{{ com: compute error estimates, mark intervals for splitting
             for (i, interval) in intervals.iter_mut().enumerate() {
                 let bounds = (interval[0], interval[1], interval[2], interval[3]);
                 if interval[4] == non_val {
-                    let (integral, err_est) = 
-                    error_estimate(f, &opts.fixed_rule_low, &opts.fixed_rule_high, bounds);
+                    let (integral, err_est) =
+                        error_estimate(f, &opts.fixed_rule_low, &opts.fixed_rule_high, bounds);
                     //{{{ trace
                     debug!("integral = {}, err_est = {}", integral, err_est);
                     //}}}
@@ -757,15 +767,14 @@ pub mod d2 {
 
                     if err_est > opts.tol {
                         marked.push(i);
-                    }   
+                    }
                 }
             }
             //}}}
             //{{{ com: split marked intervals
             if marked.is_empty() {
                 has_converged = true;
-            }
-            else {
+            } else {
                 for j in &marked {
                     let interval = intervals[*j];
                     let ul = interval[0];
@@ -781,7 +790,7 @@ pub mod d2 {
 
                     let new_interval_1 = [mid_u, uh, vl, mid_v, non_val, non_val];
                     let new_interval_2 = [ul, mid_u, mid_v, vh, non_val, non_val];
-                    let new_interval_3 = [mid_u, uh, mid_v, vh,  non_val, non_val];
+                    let new_interval_3 = [mid_u, uh, mid_v, vh, non_val, non_val];
                     intervals.push(new_interval_1);
                     intervals.push(new_interval_2);
                     intervals.push(new_interval_3);
@@ -794,9 +803,9 @@ pub mod d2 {
         //}}}
         //{{{ com: sum up the integrals and errors
         let mut integral = 0.0;
-        let mut err_est = 0.0; 
+        let mut err_est = 0.0;
 
-        for interval in & intervals {
+        for interval in &intervals {
             integral += interval[4];
             err_est += interval[5];
         }
@@ -815,21 +824,16 @@ pub mod d2 {
     //-------------------------------------------------------------------------------------------------
     //{{{ mod: tests
     #[cfg(test)]
-    mod tests
-    {
+    mod tests {
         //! Some notes on the tests:
-        //! - We use absolute difference using the error upper bound as that is the guarantee 
-        //!   that this function provides. We do this rather than use a relative error. 
-        //! 
-        //! 
-        
+        //! - We use absolute difference using the error upper bound as that is the guarantee
+        //!   that this function provides. We do this rather than use a relative error.
+        //!
+        //!
+
         use super::*;
-        use approx::{assert_abs_diff_eq, assert_relative_eq};
-
-
-
-
-
+        use crate::gauss::GaussQuadType;
+        use approx::assert_abs_diff_eq;
 
         #[test]
         fn test_adaptive_quad_opts() {
@@ -857,28 +861,31 @@ pub mod d2 {
             match is_ok {
                 Ok(_) => panic!("Expected error"),
                 Err(err) => {
-                    assert_eq!(err.to_string(),
-                    "The options are invalid with reasons:\
+                    assert_eq!(
+                        err.to_string(),
+                        "The options are invalid with reasons:\
                     \n\tBounds invalid, low bound greater than high bound\
                     \n\tGauss rule order mismatch, low order greater than high order\
                     \n\tTolerance invalid, must be positive\
-                    \n\tMaximum number of subdivisions invalid, must be positive");
+                    \n\tMaximum number of subdivisions invalid, must be positive"
+                    );
                 }
             }
         }
 
         #[test]
         fn test_adaptive_quad_1() {
-
-            let f = |x: f64, y: f64|  0.3 * x.powi(4) * y.powi(4) 
-                                      + 2.0 * x.powi(3) * y.powi(3) 
-                                      - 0.1 * x.powi(2) * y.powi(2) + 
-                                      100.0 * x * y + 200.0;
+            let f = |x: f64, y: f64| {
+                0.3 * x.powi(4) * y.powi(4) + 2.0 * x.powi(3) * y.powi(3)
+                    - 0.1 * x.powi(2) * y.powi(2)
+                    + 100.0 * x * y
+                    + 200.0
+            };
 
             let opts = d2::AdaptiveQuadOpts {
                 bounds: (-0.3, 5.0, -3.0, 2.0),
                 fixed_rule_low: fi::d2::FixedQuad::new(&fi::d2::FixedQuadOpts {
-                    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre), 
+                    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                     order: (10, 10),
                     bounds: (-1.0, 1.0, -1.0, 1.0),
                     subdiv: None,
@@ -897,7 +904,7 @@ pub mod d2 {
             let res = d2::adaptive_quad(&f, &opts);
             let true_integral = 7372.07722038889f64;
             let err_ub = (res.num_subdiv as f64) * opts.tol;
-            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
+            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 1);
             assert_eq!(res.num_fn_eval, 250);
@@ -905,13 +912,12 @@ pub mod d2 {
 
         #[test]
         fn test_adaptive_quad_2() {
-
-            let f = |x: f64, y: f64|  x.sin() * y.sin();
+            let f = |x: f64, y: f64| x.sin() * y.sin();
 
             let opts = d2::AdaptiveQuadOpts {
                 bounds: (0.0, 30.0, 0.0, 30.0),
                 fixed_rule_low: fi::d2::FixedQuad::new(&fi::d2::FixedQuadOpts {
-                    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre), 
+                    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                     order: (10, 10),
                     bounds: (-1.0, 1.0, -1.0, 1.0),
                     subdiv: None,
@@ -931,7 +937,7 @@ pub mod d2 {
             let true_integral = -2.0 * 30.0f64.cos() + 30.0f64.cos().powi(2) + 1.0;
 
             let err_ub = (res.num_subdiv as f64) * opts.tol;
-            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
+            assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 64);
             assert_eq!(res.num_fn_eval, 21250);
@@ -939,7 +945,7 @@ pub mod d2 {
 
         #[test]
         fn test_adaptive_quad_3() {
-            let f = |x: f64, y: f64| (x + 1.0).abs() * (y -2.0 ).abs();
+            let f = |x: f64, y: f64| (x + 1.0).abs() * (y - 2.0).abs();
 
             let mut opts = d2::AdaptiveQuadOpts {
                 bounds: (-3.0, 4.0, 0.0, 5.0),
@@ -957,9 +963,8 @@ pub mod d2 {
                 }),
                 tol: 1e-5,
                 max_depth: (10, 10),
-                init_subdiv: None
+                init_subdiv: None,
             };
-
 
             let true_integral = 377.0 / 4.0;
 
@@ -967,7 +972,7 @@ pub mod d2 {
             {
                 let res = d2::adaptive_quad(&f, &opts);
                 let err_ub = (res.num_subdiv as f64) * opts.tol;
-                assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
+                assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
                 assert!(res.error_estimate < err_ub);
                 assert_eq!(res.num_subdiv, 403);
                 assert_eq!(res.num_fn_eval, 134250);
@@ -977,7 +982,7 @@ pub mod d2 {
                 opts.init_subdiv = Some((vec![-1.0], vec![2.0]));
                 let res = d2::adaptive_quad(&f, &opts);
                 let err_ub = (res.num_subdiv as f64) * opts.tol;
-                assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub); 
+                assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
                 assert!(res.error_estimate < err_ub);
                 assert_eq!(res.num_subdiv, 4);
                 assert_eq!(res.num_fn_eval, 1000);
@@ -985,6 +990,5 @@ pub mod d2 {
         }
     }
     //}}}
-
 }
 //}}}

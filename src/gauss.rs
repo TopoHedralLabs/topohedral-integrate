@@ -67,19 +67,19 @@ impl GaussQuadType {
         }
     }
 
-    pub fn  nqp_from_order(&self, order: usize) -> usize {
+    pub fn nqp_from_order(&self, order: usize) -> usize {
         match self {
-            Self::Legendre => (order + 1) / 2,
+            Self::Legendre => order.div_ceil(2),
             Self::Lobatto => (order + 3) / 2,
         }
-    }   
+    }
 
     pub fn order_from_nqp(&self, nqp: usize) -> usize {
         match self {
             Self::Legendre => 2 * nqp - 1,
             Self::Lobatto => 2 * nqp - 3,
         }
-    }   
+    }
 }
 //}}}
 //{{{ collection: GuassQuadSet
@@ -106,7 +106,7 @@ impl GuassQuadSet {
         // set the min and max nqp's available for the given quadrature rule
         let min_nqp = 2;
         let max_nqp = match gauss_type {
-            GaussQuadType::Legendre => (order + 1) / 2,
+            GaussQuadType::Legendre => order.div_ceil(2),
             GaussQuadType::Lobatto => (order + 3) / 2,
         };
         // preallocate the points and weights
@@ -179,7 +179,7 @@ impl GuassQuadSet {
     pub fn gauss_quad_from_order(&self, order: usize) -> GaussQuad {
         debug_assert!(order <= self.max_order);
         let nqp = match self.gauss_type {
-            GaussQuadType::Legendre => (order + 1) / 2,
+            GaussQuadType::Legendre => order.div_ceil(2),
             GaussQuadType::Lobatto => (order + 3) / 2,
         };
         self.gauss_quad_from_nqp(nqp)
@@ -218,7 +218,7 @@ impl GaussQuad {
 
     pub fn new(gauss_type: GaussQuadType, order: usize) -> Self {
         let nqp = match gauss_type {
-            GaussQuadType::Legendre => (order + 1) / 2,
+            GaussQuadType::Legendre => order.div_ceil(2),
             GaussQuadType::Lobatto => (order + 3) / 2,
         };
 
@@ -233,7 +233,6 @@ impl GaussQuad {
             }
         };
 
-        
         Self::from_points_weights(gauss_type, points, weights)
     }
 }
@@ -242,31 +241,31 @@ impl GaussQuad {
 //{{{ fun: golub_welsch
 /// Computes the Golub-Welsch algorithm to generate Gauss quadrature points and weights for
 /// numerical integration.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `nqp` - number of quadrature points
 /// * `gauss_type` - type of quadrature rule
-/// * `recurrence_fcn` - recurrence function which provided the recurrence coefficients for the 
+/// * `recurrence_fcn` - recurrence function which provided the recurrence coefficients for the
 ///                      orthogonal polynomial family
-/// 
+///
 /// # Returns
 /// A tuple of two vectors, the first being the quadrature points and the second being the quadrature
 /// weights.
-/// 
+///
 /// # Theory
-/// 
+///
 /// Starting from the 3-term orthogonal polynomial recurrence relation:
 /// \\[
 ///     p_{i+1}(x) = (a_{i}x + b_{i})p_{i}(x) - c_{i}p_{i-1}
 /// \\]
 /// And rearranging to give:
 /// \\[
-///     xp_{i}(x) = 
+///     xp_{i}(x) =
 ///         -\frac{c_{i}}{a_{i}}p_{i-1}(x) + \frac{b_{i}}{a_{i}}p_{i}(x) + \frac{1}{a_{i}}p_{i+1}(x)
 /// \\]
 /// Which may in turn be represented with the following system of equations
-/// \\[ 
+/// \\[
 ///     x
 ///     \begin{bmatrix}
 ///         p_{0}(x) \\\\ p_{1}(x) \\\\ \vdots \\\\ p_{n-2} \\\\ p_{n-1}(x)
@@ -302,74 +301,75 @@ impl GaussQuad {
 /// \\[
 ///   t_{j}\mathbf{q}(t_{j}) = \mathbf{J} \mathbf{q}(t_{j})
 /// \\]
-/// 
+///
 /// Where:
-/// 
-/// \\[ 
+///
+/// \\[
 ///     \mathbf{J} =
 ///         \begin{bmatrix}
 ///             \alpha_{1} & \beta_{1} & 0 & ... & 0 \\\\
-/// 	        \beta_{1} & \alpha_{2} & \beta_{2} & ... & 0 \\\\
-/// 	        \vdots & \ddots & \ddots  & \ddots & \vdots \\\\
-/// 	        0 & ... & \beta_{n-2} & \alpha_{n-1} & \beta_{n-1} \\\\
-/// 	        0 & 0 & ... & \beta_{n-1} & \alpha_{n}
+///              \beta_{1} & \alpha_{2} & \beta_{2} & ... & 0 \\\\
+///              \vdots & \ddots & \ddots  & \ddots & \vdots \\\\
+///              0 & ... & \beta_{n-2} & \alpha_{n-1} & \beta_{n-1} \\\\
+///              0 & 0 & ... & \beta_{n-1} & \alpha_{n}
 ///         \end{bmatrix}
 /// \\]
-/// 
+///
 /// where:
-/// 
+///
 /// \\[
-///   \alpha_{i} = -\frac{b_{i}}{a_{i}}, \quad 
+///   \alpha_{i} = -\frac{b_{i}}{a_{i}}, \quad
 ///   \beta_{i} = \left( \frac{c_{i+1}}{a_{i}a_{i+1}}\right)^{1/2}
 /// \\]
+#[allow(clippy::doc_overindented_list_items)]
 fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     nqp: usize,
     gauss_type: GaussQuadType,
     recurrence_fcn: F,
 ) -> (Vec<f64>, Vec<f64>) {
     //{{{ init
-    let mut T = na::DMatrix::<f64>::zeros(nqp, nqp);
-    let (mut ai, mut bi, mut ci) = (0.0f64, 0.0f64, 0.0f64);
-    let (mut aj, mut bj, mut cj) = (0.0f64, 0.0f64, 0.0f64);
-    let (mut alpha_i, mut alpha_j) = (0.0f64, 0.0f64);
-    let (mut beta_i, beta_j, mut beta_h) = (0.0f64, 0.0f64, 0.0f64);
+    let mut tmat = na::DMatrix::<f64>::zeros(nqp, nqp);
+
+    let (mut ai, mut _bi, mut _ci): (f64, f64, f64);
+    let (mut aj, mut _bj, mut cj): (f64, f64, f64);
+    let (mut alpha_i, alpha_j): (f64, f64);
+    let (mut beta_i, mut beta_h): (f64, f64);
     //}}}
     //{{{ com: deal with row 0
     {
-        (ai, bi, ci) = recurrence_fcn(0);
-        (aj, bj, cj) = recurrence_fcn(1);
-        alpha_i = -(bi / ai);
+        (ai, _bi, _ci) = recurrence_fcn(0);
+        (aj, _bj, cj) = recurrence_fcn(1);
+        alpha_i = -(_bi / ai);
         beta_i = (cj / (ai * aj)).sqrt();
-        T[(0, 0)] = alpha_i;
-        T[(0, 1)] = beta_i;
+        tmat[(0, 0)] = alpha_i;
+        tmat[(0, 1)] = beta_i;
         beta_h = beta_i;
     }
     //}}}
     //{{{ com: deal with rows 1 to nqp-2
     for i in 1..nqp - 1 {
-        (ai, bi, ci) = recurrence_fcn(i);
-        (aj, bj, cj) = recurrence_fcn(i + 1);
-        alpha_i = -(bi / ai);
+        (ai, _bi, _ci) = recurrence_fcn(i);
+        (aj, _bj, cj) = recurrence_fcn(i + 1);
+        alpha_i = -(_bi / ai);
         beta_i = (cj / (ai * aj)).sqrt();
 
-        T[(i, i - 1)] = beta_h;
-        T[(i, i)] = alpha_i;
-        T[(i, i + 1)] = beta_i;
+        tmat[(i, i - 1)] = beta_h;
+        tmat[(i, i)] = alpha_i;
+        tmat[(i, i + 1)] = beta_i;
         beta_h = beta_i;
     }
     //}}}
     //{{{ com: deal with row nqp-1
     {
-        (ai, bi, ci) = recurrence_fcn(nqp - 1);
-        (aj, bj, cj) = recurrence_fcn(nqp);
-        alpha_j = -(bj / aj);
-        beta_i = (cj / (ai * aj)).sqrt();
-        T[(nqp - 1, nqp - 2)] = beta_h;
-        T[(nqp - 1, nqp - 1)] = alpha_j;
+        (_, _bi, _ci) = recurrence_fcn(nqp - 1);
+        (aj, _bj, _) = recurrence_fcn(nqp);
+        alpha_j = -(_bj / aj);
+        tmat[(nqp - 1, nqp - 2)] = beta_h;
+        tmat[(nqp - 1, nqp - 1)] = alpha_j;
     }
     //}}}
     //{{{ com: eigendecompose
-    let eigen_decomp = T.symmetric_eigen();
+    let eigen_decomp = tmat.symmetric_eigen();
     //}}}
     //{{{ com: compute quadrature points and weights from eigenvalues and eigenvectors
     let qpoints: Vec<f64> = eigen_decomp.eigenvalues.iter().copied().collect();
@@ -443,18 +443,30 @@ mod tests {
 
     use super::*;
     use approx::assert_relative_eq;
-    use std::fs;
     use approx::ulps_eq;
     use serde::Deserialize;
+    use std::fs;
 
     const MAX_REL: f64 = 1e-10;
 
-    #[test] 
+    #[test]
     fn test_get_legendre_points() {
         let points = get_legendre_points();
         let points_5 = points.gauss_quad_from_nqp(5);
-        let points_ok = [-0.9061798459386642, -0.5384693101056831, 2.1044260617163113e-16, 0.5384693101056824, 0.9061798459386633];
-        let weights_k = [0.23692688505618958, 0.4786286704993664, 0.5688888888888887, 0.47862867049936586, 0.2369268850561888];
+        let points_ok = [
+            -0.9061798459386642,
+            -0.5384693101056831,
+            2.1044260617163113e-16,
+            0.5384693101056824,
+            0.9061798459386633,
+        ];
+        let weights_k = [
+            0.23692688505618958,
+            0.4786286704993664,
+            0.5688888888888887,
+            0.47862867049936586,
+            0.2369268850561888,
+        ];
 
         for i in 0..5 {
             assert!(ulps_eq!(points_ok[i], points_5.points[i], max_ulps = 4));
@@ -466,8 +478,20 @@ mod tests {
     fn test_get_lobatto_points() {
         let points = get_lobatto_points();
         let points_5 = points.gauss_quad_from_nqp(5);
-        let points_ok = [-1.0, -0.6546536707079771, 5.307881287095001e-17, 0.6546536707079771, 1.0];
-        let weights_ok = [0.1, 0.5444444444444444, 0.7111111111111111, 0.5444444444444444, 0.1];
+        let points_ok = [
+            -1.0,
+            -0.6546536707079771,
+            5.307881287095001e-17,
+            0.6546536707079771,
+            1.0,
+        ];
+        let weights_ok = [
+            0.1,
+            0.5444444444444444,
+            0.7111111111111111,
+            0.5444444444444444,
+            0.1,
+        ];
 
         for i in 0..5 {
             assert!(ulps_eq!(points_ok[i], points_5.points[i], max_ulps = 4));
@@ -495,7 +519,6 @@ mod tests {
 
     #[derive(Deserialize)]
     struct GaussQuadTest2 {
-        description: String,
         values: GaussQuadTest3,
     }
 
@@ -571,6 +594,5 @@ mod tests {
     lobatto_test!(lobatto_test7, n26, 24);
     lobatto_test!(lobatto_test8, n37, 35);
     //..............................................................................................
-
 }
 //}}}
