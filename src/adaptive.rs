@@ -206,6 +206,7 @@ pub mod d1 {
     ///  };
     /// let res = d1::adaptive_quad(&f, &opts);
     /// ```
+    #[allow(clippy::doc_overindented_list_items)]
     pub fn adaptive_quad<F: Fn(f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> AdaptiveQuadResult {
         //{{{ trace
         info!("opts: {:?}", opts);
