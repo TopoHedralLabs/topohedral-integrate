@@ -321,6 +321,7 @@ impl GaussQuad {
 ///   \alpha_{i} = -\frac{b_{i}}{a_{i}}, \quad
 ///   \beta_{i} = \left( \frac{c_{i+1}}{a_{i}a_{i+1}}\right)^{1/2}
 /// \\]
+#[allow(clippy::doc_overindented_list_items)]
 fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     nqp: usize,
     gauss_type: GaussQuadType,
