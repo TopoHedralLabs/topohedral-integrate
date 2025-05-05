@@ -13,7 +13,8 @@
 use std::sync::OnceLock;
 //}}}
 //{{{ dep imports
-use nalgebra as na;
+// use nalgebra as na;
+use topohedral_linalg::dmatrix::*;
 //}}}
 //--------------------------------------------------------------------------------------------------
 //{{{ collection: quadrature
@@ -328,7 +329,7 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     recurrence_fcn: F,
 ) -> (Vec<f64>, Vec<f64>) {
     //{{{ init
-    let mut tmat = na::DMatrix::<f64>::zeros(nqp, nqp);
+    let mut tmat = DMatrix::<f64>::zeros(nqp, nqp);
 
     let (mut ai, mut _bi, mut _ci): (f64, f64, f64);
     let (mut aj, mut _bj, mut cj): (f64, f64, f64);
@@ -369,13 +370,13 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     }
     //}}}
     //{{{ com: eigendecompose
-    let eigen_decomp = tmat.symmetric_eigen();
+    let eigen_decomp = tmat.symeig().unwrap();
     //}}}
     //{{{ com: compute quadrature points and weights from eigenvalues and eigenvectors
-    let qpoints: Vec<f64> = eigen_decomp.eigenvalues.iter().copied().collect();
+    let qpoints: Vec<f64> = eigen_decomp.eigvals.iter().copied().collect();
     let mu0 = gauss_type.weight_integral();
     let qweights: Vec<f64> = eigen_decomp
-        .eigenvectors
+        .eigvecs
         .row(0)
         .iter()
         .map(|x| x.powi(2) * mu0)

@@ -172,6 +172,10 @@ fn error_estimate<F: Fn(f64) -> f64>(
 /// In this example we integrate the function $f(x) = 7x^4 - 2x^3 - 11x^2 + 15x + 1$ over the
 /// inteval $[-3, 10]$. We use Gauss-Legendre qadrature rules of order 10 and 30, respectively.
 /// ```
+/// 
+/// #![feature(generic_const_exprs)]
+/// #![allow(incomplete_features)]
+/// #![feature(impl_trait_in_assoc_type)]
 /// use topohedral_integrate::fixed as fi;
 /// use topohedral_integrate::adaptive::d1;
 /// use topohedral_integrate::gauss::{GaussQuad, GaussQuadType};
