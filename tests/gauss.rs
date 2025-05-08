@@ -2,7 +2,7 @@
 #![allow(incomplete_features)]
 #![feature(impl_trait_in_assoc_type)]
 
-use approx::{assert_relative_eq, ulps_eq};
+use approx::assert_relative_eq;
 use serde::Deserialize;
 use std::fs;
 use topohedral_integrate::gauss::*;

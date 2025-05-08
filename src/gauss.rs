@@ -373,7 +373,7 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     let eigen_decomp = tmat.symeig().unwrap();
     //}}}
     //{{{ com: compute quadrature points and weights from eigenvalues and eigenvectors
-    let qpoints: Vec<f64> = eigen_decomp.eigvals.iter().copied().collect();
+    let qpoints: &Vec<f64> = &eigen_decomp.eigvals;
     let mu0 = gauss_type.weight_integral();
     let qweights: Vec<f64> = eigen_decomp
         .eigvecs
