@@ -11,6 +11,9 @@
 //{{{ dep imports
 //}}}
 //--------------------------------------------------------------------------------------------------
+#![feature(generic_const_exprs)]
+#![allow(incomplete_features)]
+#![feature(impl_trait_in_assoc_type)]
 
 mod common;
 pub use common::{OptionsError, OptionsStruct};

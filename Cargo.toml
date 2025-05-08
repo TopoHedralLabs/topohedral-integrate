@@ -8,12 +8,12 @@ publish = ["cloudsmith"]
 enable_trace = ["topohedral-tracing/enable_trace"]
 
 [dependencies]
-nalgebra = "0.32.6"
 serde = {version = "1.0.203", features = ["derive"]}
 serde_json = "1.0.117"
 approx = "0.5.1"
 log = "0.4.21"
 topohedral-tracing = {version = "0.0.1", registry = "cloudsmith"}
+topohedral-linalg = {version = "0.0.0", registry = "cloudsmith"}
 thiserror = "1.0.64"
 
 

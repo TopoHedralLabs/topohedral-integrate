@@ -11,6 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install OpenBLAS
+        run: |
+          sudo apt update
+          sudo apt install -y libopenblas-dev
+
       - uses: dtolnay/rust-toolchain@stable
         with: 
           toolchain: stable
