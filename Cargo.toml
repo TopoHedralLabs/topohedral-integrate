@@ -1,7 +1,12 @@
 [package]
 name = "topohedral-integrate"
 version = "0.0.0"
+authors = ["John Ferguson <JAFerguson952@gmail.com>"]
 edition = "2021"
+repository = "https://github.com/TopoHedralLabs/topohedral-integrate"
+readme = "README.md"
+license = "MIT"
+description = "A crate for numerical integration."
 publish = ["cloudsmith"]
 
 [features]
