@@ -36,7 +36,7 @@ pub fn append_reason(err: &mut OptionsError, reason: &str) {
     match err {
         OptionsError::InvalidOptionsShort => {}
         OptionsError::InvalidOptionsFull(s) => {
-            s.push_str(format!("\n\t{}", reason).as_str());
+            s.push_str(format!("\n\t{reason}").as_str());
         }
     }
 }
@@ -54,7 +54,7 @@ mod tests {
         append_reason(&mut err, "reason 1");
         append_reason(&mut err, "reason 2");
 
-        let err_str = format!("{}", err);
+        let err_str = format!("{err}");
         assert_eq!(
             err_str,
             "The options are invalid with reasons:\n\treason 1\n\treason 2"
