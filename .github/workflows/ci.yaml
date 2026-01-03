@@ -7,7 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_REGISTRIES_CLOUDSMITH_TOKEN: ${{ secrets.CLOUDSMITH_API_KEY }}
-      CARGO_REGISTRIES_CLOUDSMITH_INDEX: https://dl.cloudsmith.io/${{ secrets.CLOUDSMITH_TOKEN }}/topohedrallabs/topohedral/cargo/index.git
     steps:
       - uses: actions/checkout@v4
 
@@ -16,9 +15,9 @@ jobs:
           sudo apt update
           sudo apt install -y libopenblas-dev
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
         with: 
-          toolchain: stable
+          toolchain: nightly 
           components: rustfmt, clippy 
 
       - name: Cache Cargo registry
