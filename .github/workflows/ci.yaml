@@ -15,9 +15,9 @@ jobs:
           sudo apt update
           sudo apt install -y libopenblas-dev
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
         with: 
-          toolchain: stable
+          toolchain: nightly 
           components: rustfmt, clippy 
 
       - name: Cache Cargo registry
