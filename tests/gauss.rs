@@ -1,7 +1,3 @@
-#![feature(generic_const_exprs)]
-#![allow(incomplete_features)]
-#![feature(impl_trait_in_assoc_type)]
-
 use approx::assert_relative_eq;
 use serde::Deserialize;
 use std::fs;

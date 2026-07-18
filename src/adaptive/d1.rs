@@ -173,9 +173,6 @@ fn error_estimate<F: Fn(f64) -> f64>(
 /// inteval $[-3, 10]$. We use Gauss-Legendre qadrature rules of order 10 and 30, respectively.
 /// ```
 ///
-/// #![feature(generic_const_exprs)]
-/// #![allow(incomplete_features)]
-/// #![feature(impl_trait_in_assoc_type)]
 /// use topohedral_integrate::fixed as fi;
 /// use topohedral_integrate::adaptive::d1;
 /// use topohedral_integrate::gauss::{GaussQuad, GaussQuadType};
@@ -187,13 +184,13 @@ fn error_estimate<F: Fn(f64) -> f64>(
 ///         gauss_type: GaussQuadType::Legendre,
 ///         order: 10,
 ///         bounds: (-1.0, 1.0),
-///         subdiv: None,    
+///         subdiv: None,
 ///     }),
 ///     fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
 ///         gauss_type: GaussQuadType::Legendre,
 ///         order: 30,
 ///         bounds: (-1.0, 1.0),
-///         subdiv:None,    
+///         subdiv:None,
 ///     }),
 ///     tol: 1e-5,
 ///     max_depth: 1000,
