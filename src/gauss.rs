@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 //}}}
 //{{{ dep imports
 // use nalgebra as na;
-use topohedral_linalg::dmatrix::*;
+use topohedral_linalg::{DMatrix, SubViewable};
 //}}}
 //--------------------------------------------------------------------------------------------------
 //{{{ collection: quadrature

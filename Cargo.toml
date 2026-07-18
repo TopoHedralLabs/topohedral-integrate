@@ -1,6 +1,6 @@
 [package]
 name = "topohedral-integrate"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["John Ferguson <JAFerguson952@gmail.com>"]
 edition = "2021"
 repository = "https://github.com/TopoHedralLabs/topohedral-integrate"
@@ -18,8 +18,8 @@ serde_json = "1.0.117"
 approx = "0.5.1"
 log = "0.4.29"
 thiserror = "2.0.17"
-topohedral-tracing = {version = "0.0.2", registry = "cloudsmith"}
-topohedral-linalg = {version = "1.0.1", registry = "cloudsmith"}
+topohedral-tracing = {version = "0.1.1", registry = "cloudsmith"}
+topohedral-linalg = {version = "4.1.0", registry = "cloudsmith"}
 
 
 [dev-dependencies]
