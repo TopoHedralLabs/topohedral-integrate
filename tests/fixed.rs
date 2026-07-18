@@ -5,9 +5,10 @@ mod d1_tests {
     use approx::assert_relative_eq;
     use serde::Deserialize;
     use std::fs;
-    use topohedral_integrate::fixed::d1::*;
-    use topohedral_integrate::gauss::GaussQuadType;
-    use topohedral_integrate::OptionsStruct;
+    use topohedral_integrate::{
+        fixed_quad_1d as fixed_quad, FixedQuadOpts1D as FixedQuadOpts, GaussQuadType,
+        OptionsVerify,
+    };
 
     const MAX_REL: f64 = 1e-14;
     //}}}
@@ -230,9 +231,13 @@ mod d2_tests {
 
     //{{{ collection: imports
     use approx::assert_relative_eq;
-    use topohedral_integrate::fixed::d2;
-    use topohedral_integrate::gauss::GaussQuadType;
-    use topohedral_integrate::OptionsStruct;
+    use topohedral_integrate::{GaussQuadType, OptionsVerify};
+
+    mod d2 {
+        pub use topohedral_integrate::{
+            fixed_quad_2d as fixed_quad, FixedQuadOpts2D as FixedQuadOpts,
+        };
+    }
 
     use serde::Deserialize;
     use std::fs;

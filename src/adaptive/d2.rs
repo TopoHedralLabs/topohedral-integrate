@@ -2,7 +2,7 @@
 //! real-valued functions.
 
 //{{{ crate imports
-use crate::common::{append_reason, OptionsError, OptionsStruct};
+use crate::common::{append_reason, OptionsError, OptionsVerify};
 use crate::fixed as fi;
 // use crate::gauss::GaussQuadType;
 //}}}
@@ -25,7 +25,7 @@ pub struct AdaptiveQuadOpts {
 }
 //}}}
 //{{{ impl: OptionsStruct for AdaptiveQuadOpts
-impl OptionsStruct for AdaptiveQuadOpts {
+impl OptionsVerify for AdaptiveQuadOpts {
     fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
         let mut ok = true;
 

@@ -8,12 +8,16 @@ mod d1_tests {
     //!   in a way that you can justify then change the expected values.
 
     use approx::assert_abs_diff_eq;
-    use topohedral_integrate::adaptive::d1;
-    use topohedral_integrate::fixed::d1::{
-        FixedQuad as FixedQuadD1, FixedQuadOpts as FixedQuadOptsD1,
+    use topohedral_integrate::{
+        FixedQuad1D as FixedQuadD1, FixedQuadOpts1D as FixedQuadOptsD1, GaussQuadType,
+        OptionsVerify,
     };
-    use topohedral_integrate::gauss::GaussQuadType;
-    use topohedral_integrate::OptionsStruct;
+
+    mod d1 {
+        pub use topohedral_integrate::{
+            adaptive_quad_1d as adaptive_quad, AdaptiveQuadOpts1D as AdaptiveQuadOpts,
+        };
+    }
 
     /// Test to check that the options struct finds errors
     #[test]
@@ -246,12 +250,16 @@ mod d2_tests {
     //!
 
     use approx::assert_abs_diff_eq;
-    use topohedral_integrate::adaptive::d2;
-    use topohedral_integrate::fixed::d2::{
-        FixedQuad as FixedQuadD2, FixedQuadOpts as FixedQuadOptsD2,
+    use topohedral_integrate::{
+        FixedQuad2D as FixedQuadD2, FixedQuadOpts2D as FixedQuadOptsD2, GaussQuadType,
+        OptionsVerify,
     };
-    use topohedral_integrate::gauss::GaussQuadType;
-    use topohedral_integrate::OptionsStruct;
+
+    mod d2 {
+        pub use topohedral_integrate::{
+            adaptive_quad_2d as adaptive_quad, AdaptiveQuadOpts2D as AdaptiveQuadOpts,
+        };
+    }
 
     #[test]
     fn test_adaptive_quad_opts() {

@@ -1,4 +1,4 @@
-//! Common definitions and utilities used throughout the crate.   
+//! Common definitions and utilities used throughout the crate.
 //!
 //--------------------------------------------------------------------------------------------------
 
@@ -12,14 +12,14 @@ use thiserror::Error;
 //--------------------------------------------------------------------------------------------------
 
 /// Simple trait which all options structs must implement.
-pub trait OptionsStruct {
+pub trait OptionsVerify {
     /// Checks if the options are valid.
     ///
     /// If the options are valid, returns `Ok(())`. Else, returns `Err(OptionsError)` with the
     /// respective enum variant. If `full` is set to false then only the cheap version of the
     /// check is performed, meaning it only says if it is valid or not with no diagnostic
     /// information. If `full` is set to true then the full version of the check is performed,
-    /// meaning every error is reposred in the string contained by InvalidOptionsFull.  
+    /// meaning every error is reposred in the string contained by InvalidOptionsFull.
     fn is_ok(&self, full: bool) -> Result<(), OptionsError>;
 }
 

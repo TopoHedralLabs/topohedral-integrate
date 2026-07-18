@@ -2,7 +2,7 @@
 //! real-valued functions.
 
 //{{{ crate imports
-use crate::common::{append_reason, OptionsError, OptionsStruct};
+use crate::common::{append_reason, OptionsError, OptionsVerify};
 use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuadType};
 //}}}
 //{{{ std imports
@@ -29,7 +29,7 @@ pub struct FixedQuadOpts {
 }
 //}}}
 //{{{ impl OptionsStruct for FixedQuadOpts
-impl OptionsStruct for FixedQuadOpts {
+impl OptionsVerify for FixedQuadOpts {
     fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
         let mut ok = true;
         let mut err = if full {

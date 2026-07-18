@@ -4,7 +4,7 @@
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports
-use crate::common::{append_reason, OptionsError, OptionsStruct};
+use crate::common::{append_reason, OptionsError, OptionsVerify};
 use crate::fixed as fi;
 // use crate::gauss::GaussQuadType;
 //}}}
@@ -51,7 +51,7 @@ pub struct AdaptiveQuadOpts {
 }
 //}}}
 //{{{ impl: OptionsStruct for AdaptiveQuadOpts
-impl OptionsStruct for AdaptiveQuadOpts {
+impl OptionsVerify for AdaptiveQuadOpts {
     fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
         let mut ok = true;
 
@@ -173,20 +173,20 @@ fn error_estimate<F: Fn(f64) -> f64>(
 /// inteval $[-3, 10]$. We use Gauss-Legendre qadrature rules of order 10 and 30, respectively.
 /// ```
 ///
-/// use topohedral_integrate::fixed as fi;
-/// use topohedral_integrate::adaptive::d1;
-/// use topohedral_integrate::gauss::{GaussQuad, GaussQuadType};
+/// use topohedral_integrate::{
+///     adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuad1D, FixedQuadOpts1D, GaussQuadType,
+/// };
 ///
 /// let f =  |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
-/// let opts = d1::AdaptiveQuadOpts {
+/// let opts = AdaptiveQuadOpts1D {
 ///     bounds: (-3.0, 10.0),
-///         fixed_rule_low: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+///     fixed_rule_low: FixedQuad1D::new(&FixedQuadOpts1D {
 ///         gauss_type: GaussQuadType::Legendre,
 ///         order: 10,
 ///         bounds: (-1.0, 1.0),
 ///         subdiv: None,
 ///     }),
-///     fixed_rule_high: fi::d1::FixedQuad::new(&fi::d1::FixedQuadOpts {
+///     fixed_rule_high: FixedQuad1D::new(&FixedQuadOpts1D {
 ///         gauss_type: GaussQuadType::Legendre,
 ///         order: 30,
 ///         bounds: (-1.0, 1.0),
@@ -196,7 +196,7 @@ fn error_estimate<F: Fn(f64) -> f64>(
 ///     max_depth: 1000,
 ///     init_subdiv: None,
 ///  };
-/// let res = d1::adaptive_quad(&f, &opts);
+/// let res = adaptive_quad_1d(&f, &opts);
 /// ```
 #[allow(clippy::doc_overindented_list_items)]
 pub fn adaptive_quad<F: Fn(f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> AdaptiveQuadResult {
