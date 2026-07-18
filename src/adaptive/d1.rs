@@ -52,7 +52,10 @@ pub struct AdaptiveQuadOpts {
 //}}}
 //{{{ impl: OptionsStruct for AdaptiveQuadOpts
 impl OptionsVerify for AdaptiveQuadOpts {
-    fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
+    fn is_ok(
+        &self,
+        full: bool,
+    ) -> Result<(), OptionsError> {
         let mut ok = true;
 
         let mut err = if full {
@@ -199,7 +202,10 @@ fn error_estimate<F: Fn(f64) -> f64>(
 /// let res = adaptive_quad_1d(&f, &opts);
 /// ```
 #[allow(clippy::doc_overindented_list_items)]
-pub fn adaptive_quad<F: Fn(f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> AdaptiveQuadResult {
+pub fn adaptive_quad<F: Fn(f64) -> f64>(
+    f: &F,
+    opts: &AdaptiveQuadOpts,
+) -> AdaptiveQuadResult {
     //{{{ trace
     info!("opts: {:?}", opts);
     //}}}

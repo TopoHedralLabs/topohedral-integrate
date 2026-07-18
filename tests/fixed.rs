@@ -6,8 +6,7 @@ mod d1_tests {
     use serde::Deserialize;
     use std::fs;
     use topohedral_integrate::{
-        fixed_quad_1d as fixed_quad, FixedQuadOpts1D as FixedQuadOpts, GaussQuadType,
-        OptionsVerify,
+        fixed_quad_1d as fixed_quad, FixedQuadOpts1D as FixedQuadOpts, GaussQuadType, OptionsVerify,
     };
 
     const MAX_REL: f64 = 1e-14;

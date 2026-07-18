@@ -20,7 +20,10 @@ pub trait OptionsVerify {
     /// check is performed, meaning it only says if it is valid or not with no diagnostic
     /// information. If `full` is set to true then the full version of the check is performed,
     /// meaning every error is reposred in the string contained by InvalidOptionsFull.
-    fn is_ok(&self, full: bool) -> Result<(), OptionsError>;
+    fn is_ok(
+        &self,
+        full: bool,
+    ) -> Result<(), OptionsError>;
 }
 
 #[derive(Error, Debug)]
@@ -32,7 +35,10 @@ pub enum OptionsError {
 }
 
 /// Appends the reason to the error.
-pub fn append_reason(err: &mut OptionsError, reason: &str) {
+pub fn append_reason(
+    err: &mut OptionsError,
+    reason: &str,
+) {
     match err {
         OptionsError::InvalidOptionsShort => {}
         OptionsError::InvalidOptionsFull(s) => {

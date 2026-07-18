@@ -26,7 +26,10 @@ pub struct AdaptiveQuadOpts {
 //}}}
 //{{{ impl: OptionsStruct for AdaptiveQuadOpts
 impl OptionsVerify for AdaptiveQuadOpts {
-    fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
+    fn is_ok(
+        &self,
+        full: bool,
+    ) -> Result<(), OptionsError> {
         let mut ok = true;
 
         let mut err = if full {
@@ -125,7 +128,10 @@ fn error_estimate<F: Fn(f64, f64) -> f64>(
 }
 //}}}
 //{{{ fun: adaptive_quad
-pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> AdaptiveQuadResult {
+pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
+    f: &F,
+    opts: &AdaptiveQuadOpts,
+) -> AdaptiveQuadResult {
     //{{{ trace
     info!("opts: {:?}", opts);
     //}}}

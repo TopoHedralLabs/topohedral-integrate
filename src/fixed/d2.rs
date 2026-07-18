@@ -27,7 +27,10 @@ pub struct FixedQuadOpts {
 //}}}
 //{{{ impl: OptionsStruct for FixedQuadOpts
 impl OptionsVerify for FixedQuadOpts {
-    fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
+    fn is_ok(
+        &self,
+        full: bool,
+    ) -> Result<(), OptionsError> {
         let mut ok = true;
         let mut err = if full {
             OptionsError::InvalidOptionsFull(String::new())
@@ -195,7 +198,10 @@ impl FixedQuad {
 }
 //}}}
 //{{{ fun: fixed_quad
-pub fn fixed_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &FixedQuadOpts) -> f64 {
+pub fn fixed_quad<F: Fn(f64, f64) -> f64>(
+    f: &F,
+    opts: &FixedQuadOpts,
+) -> f64 {
     let quad_rule = FixedQuad::new(opts);
     quad_rule.integrate(f, None)
 }

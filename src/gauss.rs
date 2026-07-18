@@ -68,14 +68,20 @@ impl GaussQuadType {
         }
     }
 
-    pub fn nqp_from_order(&self, order: usize) -> usize {
+    pub fn nqp_from_order(
+        &self,
+        order: usize,
+    ) -> usize {
         match self {
             Self::Legendre => order.div_ceil(2),
             Self::Lobatto => (order + 3) / 2,
         }
     }
 
-    pub fn order_from_nqp(&self, nqp: usize) -> usize {
+    pub fn order_from_nqp(
+        &self,
+        nqp: usize,
+    ) -> usize {
         match self {
             Self::Legendre => 2 * nqp - 1,
             Self::Lobatto => 2 * nqp - 3,
@@ -103,7 +109,10 @@ pub struct GuassQuadSet {
 //}}}
 //{{{ impl: GuassQuadSet
 impl GuassQuadSet {
-    pub fn new(gauss_type: GaussQuadType, order: usize) -> Self {
+    pub fn new(
+        gauss_type: GaussQuadType,
+        order: usize,
+    ) -> Self {
         // set the min and max nqp's available for the given quadrature rule
         let min_nqp = 2;
         let max_nqp = match gauss_type {
@@ -170,14 +179,20 @@ impl GuassQuadSet {
         }
     }
 
-    pub fn gauss_quad_from_nqp(&self, nqp: usize) -> GaussQuad {
+    pub fn gauss_quad_from_nqp(
+        &self,
+        nqp: usize,
+    ) -> GaussQuad {
         debug_assert!(nqp >= self.min_nqp && nqp <= self.max_nqp);
         let points_nqp = self.points[nqp - self.min_nqp].clone();
         let weights_nqp = self.weights[nqp - self.min_nqp].clone();
         GaussQuad::from_points_weights(self.gauss_type, points_nqp, weights_nqp)
     }
 
-    pub fn gauss_quad_from_order(&self, order: usize) -> GaussQuad {
+    pub fn gauss_quad_from_order(
+        &self,
+        order: usize,
+    ) -> GaussQuad {
         debug_assert!(order <= self.max_order);
         let nqp = match self.gauss_type {
             GaussQuadType::Legendre => order.div_ceil(2),
@@ -206,7 +221,11 @@ pub struct GaussQuad {
 //}}}
 //{{{ impl: GaussQuad
 impl GaussQuad {
-    fn from_points_weights(gauss_type: GaussQuadType, points: Vec<f64>, weights: Vec<f64>) -> Self {
+    fn from_points_weights(
+        gauss_type: GaussQuadType,
+        points: Vec<f64>,
+        weights: Vec<f64>,
+    ) -> Self {
         debug_assert_eq!(points.len(), weights.len());
         let nqp = points.len();
         Self {
@@ -217,7 +236,10 @@ impl GaussQuad {
         }
     }
 
-    pub fn new(gauss_type: GaussQuadType, order: usize) -> Self {
+    pub fn new(
+        gauss_type: GaussQuadType,
+        order: usize,
+    ) -> Self {
         let nqp = match gauss_type {
             GaussQuadType::Legendre => order.div_ceil(2),
             GaussQuadType::Lobatto => (order + 3) / 2,
@@ -421,7 +443,10 @@ fn lobatto_recursion_coeffs(i: usize) -> (f64, f64, f64) {
 }
 //}}}
 //{{{ fun: legendre
-fn legendre(n: usize, x: f64) -> f64 {
+fn legendre(
+    n: usize,
+    x: f64,
+) -> f64 {
     debug_assert!((-1.0..=1.0).contains(&x));
 
     let (mut leg_n, mut leg_1, mut leg_2) = (1.0f64, 1.0f64, 0.0f64);
