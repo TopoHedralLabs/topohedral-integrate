@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GaussQuadType","OptionsError"],"fn":["adaptive_quad_1d","adaptive_quad_2d","fixed_quad_1d","fixed_quad_2d","get_legendre_points","get_lobatto_points"],"struct":["AdaptiveQuadOpts1D","AdaptiveQuadOpts2D","AdaptiveQuadResult1D","AdaptiveQuadResult2D","FixedQuad1D","FixedQuad2D","FixedQuadOpts1D","FixedQuadOpts2D","GaussQuad","GuassQuadSet"]};
