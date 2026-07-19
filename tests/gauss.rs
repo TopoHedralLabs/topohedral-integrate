@@ -1,11 +1,7 @@
-#![feature(generic_const_exprs)]
-#![allow(incomplete_features)]
-#![feature(impl_trait_in_assoc_type)]
-
 use approx::assert_relative_eq;
 use serde::Deserialize;
 use std::fs;
-use topohedral_integrate::gauss::*;
+use topohedral_integrate::{GaussQuadType, GuassQuadSet};
 
 const MAX_REL: f64 = 1e-10;
 

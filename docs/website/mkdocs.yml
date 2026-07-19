@@ -1,0 +1,40 @@
+site_name: TopoHedral-Integrate Documentation
+site_url: https://topohedrallabs.github.io/topohedral-integrate/
+theme:
+  name: material
+  features:
+    - navigation.indexes
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/katex.js
+  - https://unpkg.com/katex@0/dist/katex.min.js
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
+
+extra_css:
+  - https://unpkg.com/katex@0/dist/katex.min.css
+
+extra:
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - User Guide:
+      - Overview: user-guide/index.md
+      - Gaussian Rules: user-guide/gaussian-rules.md
+      - Fixed Quadrature: user-guide/fixed-quadrature.md
+      - Adaptive Quadrature: user-guide/adaptive-quadrature.md
+  - API Docs: api/
+  - Developers:
+      - Overview: developers/index.md
+      - Building Docs: developers/building-docs.md

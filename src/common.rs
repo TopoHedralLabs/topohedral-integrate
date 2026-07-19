@@ -1,4 +1,4 @@
-//! Common definitions and utilities used throughout the crate.   
+//! Common definitions and utilities used throughout the crate.
 //!
 //--------------------------------------------------------------------------------------------------
 
@@ -11,28 +11,37 @@ use thiserror::Error;
 //}}}
 //--------------------------------------------------------------------------------------------------
 
-/// Simple trait which all options structs must implement.
-pub trait OptionsStruct {
+/// Internal validation implemented by all options structs.
+pub(crate) trait OptionsVerify {
     /// Checks if the options are valid.
     ///
     /// If the options are valid, returns `Ok(())`. Else, returns `Err(OptionsError)` with the
     /// respective enum variant. If `full` is set to false then only the cheap version of the
     /// check is performed, meaning it only says if it is valid or not with no diagnostic
     /// information. If `full` is set to true then the full version of the check is performed,
-    /// meaning every error is reposred in the string contained by InvalidOptionsFull.  
-    fn is_ok(&self, full: bool) -> Result<(), OptionsError>;
+    /// meaning every error is reposred in the string contained by InvalidOptionsFull.
+    fn is_ok(
+        &self,
+        full: bool,
+    ) -> Result<(), OptionsError>;
 }
 
+/// Error returned when integration options fail validation.
 #[derive(Error, Debug)]
 pub enum OptionsError {
+    /// The options are invalid; no individual reasons were collected.
     #[error("The options are invalid.")]
     InvalidOptionsShort,
+    /// The options are invalid, with one or more human-readable reasons.
     #[error("The options are invalid with reasons:{0}")]
     InvalidOptionsFull(String),
 }
 
 /// Appends the reason to the error.
-pub fn append_reason(err: &mut OptionsError, reason: &str) {
+pub fn append_reason(
+    err: &mut OptionsError,
+    reason: &str,
+) {
     match err {
         OptionsError::InvalidOptionsShort => {}
         OptionsError::InvalidOptionsFull(s) => {

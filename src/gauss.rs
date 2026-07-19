@@ -1,10 +1,7 @@
-//! This module contains the implementation of Gauss quadrature rules.
+//! Gauss quadrature rules for one-dimensional real-valued integrands.
 //!
-//! It is limited to 1D and to the standard real-numbers
-//!
-//! Gauss quadrature is a numerical integration method that approximates the integral of a function
-//! using a weighted sum of function values at specific points. These points are the roots of a
-//! family of orthogonal polynomials.
+//! Gauss quadrature approximates an integral with a weighted sum of function values at points
+//! associated with an orthogonal-polynomial family.
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports
@@ -14,11 +11,12 @@ use std::sync::OnceLock;
 //}}}
 //{{{ dep imports
 // use nalgebra as na;
-use topohedral_linalg::dmatrix::*;
+use topohedral_linalg::{DMatrix, SubViewable};
 //}}}
 //--------------------------------------------------------------------------------------------------
 //{{{ collection: quadrature
 //{{{ static: MAX_ORDER
+/// Largest polynomial order included in each cached rule set.
 pub static MAX_ORDER: usize = 100;
 //}}}
 //{{{ static: LEGENDRE_POINTS
@@ -28,31 +26,32 @@ static LEGENDRE_POINTS: OnceLock<GuassQuadSet> = OnceLock::new();
 static LOBATTO_POINTS: OnceLock<GuassQuadSet> = OnceLock::new();
 //}}}
 //{{{ fun: get_legendre_points
+/// Returns the lazily initialized Gauss-Legendre rules through the configured maximum order.
 pub fn get_legendre_points() -> &'static GuassQuadSet {
     LEGENDRE_POINTS.get_or_init(|| GuassQuadSet::new(GaussQuadType::Legendre, MAX_ORDER))
 }
 //}}}
 //{{{ fun: get_lobatto_points
+/// Returns the lazily initialized Gauss-Lobatto rules through the configured maximum order.
 pub fn get_lobatto_points() -> &'static GuassQuadSet {
     LOBATTO_POINTS.get_or_init(|| GuassQuadSet::new(GaussQuadType::Lobatto, MAX_ORDER))
 }
 //}}}
 //}}}
 //{{{ enum: GaussQuadType
-/// An enumeration of supported Gauss quadrature rules. Each member corresponds to the orthogonal
-/// polynomial family used for the rule.
-///
-/// `Legendre` specifies Gauss-Legendre quadrature.
-/// `Lobatto` specifies Gauss-Lobatto quadrature.
+/// A supported Gauss quadrature family.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GaussQuadType {
+    /// Gauss-Legendre quadrature on `[-1, 1]` with unit weight.
     Legendre,
+    /// Gauss-Lobatto quadrature family on `[-1, 1]`.
+    ///
+    /// Rules retrieved from a [`GuassQuadSet`] include both endpoints.
     Lobatto,
 }
 
 impl GaussQuadType {
-    /// Returns the integral over the reference domain of the weight function assocaited with the
-    /// orthogonal polynomail family.
+    /// Returns the reference-interval integral of the weight used by this family's recurrence.
     pub fn weight_integral(&self) -> f64 {
         match self {
             Self::Legendre => 2.0,
@@ -60,7 +59,7 @@ impl GaussQuadType {
         }
     }
 
-    /// Returns the range over which the polynomial family is defined.
+    /// Returns this family's reference interval.
     pub fn range(&self) -> (f64, f64) {
         match self {
             Self::Legendre => (-1.0, 1.0),
@@ -68,14 +67,24 @@ impl GaussQuadType {
         }
     }
 
-    pub fn nqp_from_order(&self, order: usize) -> usize {
+    /// Returns the number of points needed for a rule with at least `order` exactness.
+    pub fn nqp_from_order(
+        &self,
+        order: usize,
+    ) -> usize {
         match self {
             Self::Legendre => order.div_ceil(2),
             Self::Lobatto => (order + 3) / 2,
         }
     }
 
-    pub fn order_from_nqp(&self, nqp: usize) -> usize {
+    /// Returns the polynomial exactness of an `nqp`-point rule.
+    ///
+    /// `nqp` must be at least two.
+    pub fn order_from_nqp(
+        &self,
+        nqp: usize,
+    ) -> usize {
         match self {
             Self::Legendre => 2 * nqp - 1,
             Self::Lobatto => 2 * nqp - 3,
@@ -85,25 +94,33 @@ impl GaussQuadType {
 //}}}
 //{{{ collection: GuassQuadSet
 //{{{ struct: GuassQuadSet
-/// Struct to represent a collection of Gauss quadrature rules up to a given order.
+/// A collection of Gauss quadrature rules from two points through a maximum order.
+///
+/// The misspelling in this type's name is part of the established public API.
 pub struct GuassQuadSet {
-    /// underlying orthogonal polynomial family
+    /// Orthogonal-polynomial family used by every rule in the set.
     pub gauss_type: GaussQuadType,
-    /// maximum order of the quadrature rule
+    /// Largest requested polynomial order represented by the set.
     pub max_order: usize,
-    /// minimum number of quadrature points
+    /// Smallest number of points in a stored rule.
     pub min_nqp: usize,
-    /// maximum number of quadrature points
+    /// Largest number of points in a stored rule.
     pub max_nqp: usize,
-    /// quadrature points, the nqp-point rule is in `points[nqp - nqp_min]`
+    /// Quadrature points, indexed by `nqp - min_nqp`.
     pub points: Vec<Vec<f64>>,
-    /// quadrature weights, the nqp-point rule is in `wieghts[nqp - nqp_min]`
+    /// Quadrature weights, indexed by `nqp - min_nqp`.
     pub weights: Vec<Vec<f64>>,
 }
 //}}}
 //{{{ impl: GuassQuadSet
 impl GuassQuadSet {
-    pub fn new(gauss_type: GaussQuadType, order: usize) -> Self {
+    /// Builds all rules for `gauss_type` through the requested polynomial `order`.
+    ///
+    /// `order` must require at least two quadrature points.
+    pub fn new(
+        gauss_type: GaussQuadType,
+        order: usize,
+    ) -> Self {
         // set the min and max nqp's available for the given quadrature rule
         let min_nqp = 2;
         let max_nqp = match gauss_type {
@@ -170,14 +187,30 @@ impl GuassQuadSet {
         }
     }
 
-    pub fn gauss_quad_from_nqp(&self, nqp: usize) -> GaussQuad {
+    /// Returns a clone of the rule containing `nqp` points.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `nqp` is outside `min_nqp..=max_nqp`.
+    pub fn gauss_quad_from_nqp(
+        &self,
+        nqp: usize,
+    ) -> GaussQuad {
         debug_assert!(nqp >= self.min_nqp && nqp <= self.max_nqp);
         let points_nqp = self.points[nqp - self.min_nqp].clone();
         let weights_nqp = self.weights[nqp - self.min_nqp].clone();
         GaussQuad::from_points_weights(self.gauss_type, points_nqp, weights_nqp)
     }
 
-    pub fn gauss_quad_from_order(&self, order: usize) -> GaussQuad {
+    /// Returns the smallest stored rule whose exactness is at least `order`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `order` cannot be represented by a rule in this set.
+    pub fn gauss_quad_from_order(
+        &self,
+        order: usize,
+    ) -> GaussQuad {
         debug_assert!(order <= self.max_order);
         let nqp = match self.gauss_type {
             GaussQuadType::Legendre => order.div_ceil(2),
@@ -190,23 +223,26 @@ impl GuassQuadSet {
 //}}}
 //{{{ collection: GaussQuad
 //{{{ struct: GaussQuad
-/// This struct represents a specific quadrature rule, meaning a set of quadrature points and
-/// a set of assocciated weights.
+/// A specific Gauss quadrature rule, represented by points and associated weights.
 #[derive(Debug, Clone)]
 pub struct GaussQuad {
-    /// underlying orthogonal polynomial family
+    /// Orthogonal-polynomial family used to construct the rule.
     pub gauss_type: GaussQuadType,
-    /// number of quadrature points
+    /// Number of quadrature points and weights.
     pub nqp: usize,
-    /// quadrature points
+    /// Quadrature points in ascending order.
     pub points: Vec<f64>,
-    /// quadrature weights
+    /// Weight associated with each entry in [`Self::points`].
     pub weights: Vec<f64>,
 }
 //}}}
 //{{{ impl: GaussQuad
 impl GaussQuad {
-    fn from_points_weights(gauss_type: GaussQuadType, points: Vec<f64>, weights: Vec<f64>) -> Self {
+    fn from_points_weights(
+        gauss_type: GaussQuadType,
+        points: Vec<f64>,
+        weights: Vec<f64>,
+    ) -> Self {
         debug_assert_eq!(points.len(), weights.len());
         let nqp = points.len();
         Self {
@@ -217,7 +253,13 @@ impl GaussQuad {
         }
     }
 
-    pub fn new(gauss_type: GaussQuadType, order: usize) -> Self {
+    /// Constructs a quadrature rule using the number of points derived from `order`.
+    ///
+    /// The requested order must require at least two points.
+    pub fn new(
+        gauss_type: GaussQuadType,
+        order: usize,
+    ) -> Self {
         let nqp = match gauss_type {
             GaussQuadType::Legendre => order.div_ceil(2),
             GaussQuadType::Lobatto => (order + 3) / 2,
@@ -421,7 +463,10 @@ fn lobatto_recursion_coeffs(i: usize) -> (f64, f64, f64) {
 }
 //}}}
 //{{{ fun: legendre
-fn legendre(n: usize, x: f64) -> f64 {
+fn legendre(
+    n: usize,
+    x: f64,
+) -> f64 {
     debug_assert!((-1.0..=1.0).contains(&x));
 
     let (mut leg_n, mut leg_1, mut leg_2) = (1.0f64, 1.0f64, 0.0f64);

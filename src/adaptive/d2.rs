@@ -2,7 +2,7 @@
 //! real-valued functions.
 
 //{{{ crate imports
-use crate::common::{append_reason, OptionsError, OptionsStruct};
+use crate::common::{append_reason, OptionsError, OptionsVerify};
 use crate::fixed as fi;
 // use crate::gauss::GaussQuadType;
 //}}}
@@ -14,19 +14,38 @@ use topohedral_tracing::*;
 //--------------------------------------------------------------------------------------------------
 
 //{{{ struct: AdaptiveQuadOpts
+/// Configuration for two-dimensional adaptive quadrature.
+///
+/// The algorithm estimates each rectangle's error from the difference between the low- and
+/// high-order rules, then splits rectangles whose estimate exceeds [`Self::tol`] in both axes.
 #[derive(Debug)]
 pub struct AdaptiveQuadOpts {
+    /// Rectangular integration bounds `(u_min, u_max, v_min, v_max)`.
     pub bounds: (f64, f64, f64, f64),
-    pub fixed_rule_low: fi::d2::FixedQuad,
-    pub fixed_rule_high: fi::d2::FixedQuad,
+    /// Lower-order fixed tensor-product rule used for the integral estimate.
+    pub fixed_rule_low: fi::d2::FixedQuadOpts,
+    /// Higher-order fixed tensor-product rule used for the error estimate.
+    pub fixed_rule_high: fi::d2::FixedQuadOpts,
+    /// Positive error tolerance applied independently to each rectangle.
     pub tol: f64,
+    /// Reserved maximum refinement depth in `(u, v)` order.
+    ///
+    /// This value must not be `(0, 0)`, but the current implementation does not use it to limit
+    /// refinement.
     pub max_depth: (usize, usize),
+    /// Optional initial interior subdivision coordinates in `(u, v)` order.
+    ///
+    /// Each nonempty list should be strictly increasing. The implementation validates only that
+    /// coordinates lie within their bounds, including the endpoints.
     pub init_subdiv: Option<(Vec<f64>, Vec<f64>)>,
 }
 //}}}
 //{{{ impl: OptionsStruct for AdaptiveQuadOpts
-impl OptionsStruct for AdaptiveQuadOpts {
-    fn is_ok(&self, full: bool) -> Result<(), OptionsError> {
+impl OptionsVerify for AdaptiveQuadOpts {
+    fn is_ok(
+        &self,
+        full: bool,
+    ) -> Result<(), OptionsError> {
         let mut ok = true;
 
         let mut err = if full {
@@ -102,16 +121,22 @@ impl OptionsStruct for AdaptiveQuadOpts {
 }
 //}}}
 //{{{ struct: AdaptiveQuadResult
+/// Value and diagnostics returned by two-dimensional adaptive quadrature.
 #[derive(Debug)]
 pub struct AdaptiveQuadResult {
+    /// Approximate integral, computed by summing the low-order-rule estimates.
     pub integral: f64,
+    /// Sum of the absolute differences between low- and high-order estimates on terminal
+    /// rectangles.
     pub error_estimate: f64,
+    /// Number of terminal rectangles.
     pub num_subdiv: usize,
+    /// Number of function calls made by both rules.
     pub num_fn_eval: usize,
 }
 //}}}
 //{{{ fun: error_estimate
-/// Computes the error estimate for the integral of a function $f$
+/// Computes the low-order integral estimate and the difference between the two rules.
 fn error_estimate<F: Fn(f64, f64) -> f64>(
     f: &F,
     fixed_rule_low: &fi::d2::FixedQuad,
@@ -125,11 +150,35 @@ fn error_estimate<F: Fn(f64, f64) -> f64>(
 }
 //}}}
 //{{{ fun: adaptive_quad
-pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> AdaptiveQuadResult {
+/// Adaptively integrates `f` over [`AdaptiveQuadOpts::bounds`].
+///
+/// The tolerance is checked per rectangle, so the returned aggregate error estimate may exceed
+/// `opts.tol`. `max_depth` is validated but is not currently enforced.
+///
+/// # Errors
+///
+/// Returns [`OptionsError`] if `opts` is invalid.
+pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
+    f: &F,
+    opts: AdaptiveQuadOpts,
+) -> Result<AdaptiveQuadResult, OptionsError> {
+    opts.is_ok(true)?;
+
     //{{{ trace
     info!("opts: {:?}", opts);
     //}}}
     //{{{ init
+    let AdaptiveQuadOpts {
+        bounds,
+        fixed_rule_low,
+        fixed_rule_high,
+        tol,
+        max_depth: _,
+        init_subdiv,
+    } = opts;
+    let fixed_rule_low = fi::d2::FixedQuad::new(fixed_rule_low)?;
+    let fixed_rule_high = fi::d2::FixedQuad::new(fixed_rule_high)?;
+
     let non_val = -1.0f64;
     let mut intervals = Vec::<[f64; 6]>::new();
     let mut intervals_u = Vec::<f64>::new();
@@ -137,25 +186,25 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> 
     let mut has_converged = false;
     let mut marked = Vec::<usize>::with_capacity(100);
     let mut num_fn_eval = 0;
-    let nqp = opts.fixed_rule_low.nqp() + opts.fixed_rule_high.nqp();
+    let nqp = fixed_rule_low.nqp() + fixed_rule_high.nqp();
     //}}}
     //{{{ com: find the initial intervals in u and v
-    match &opts.init_subdiv {
+    match &init_subdiv {
         Some(subdiv) => {
-            intervals_u.push(opts.bounds.0);
+            intervals_u.push(bounds.0);
             intervals_u.extend_from_slice(subdiv.0.as_slice());
-            intervals_u.push(opts.bounds.1);
+            intervals_u.push(bounds.1);
 
-            intervals_v.push(opts.bounds.2);
+            intervals_v.push(bounds.2);
             intervals_v.extend_from_slice(subdiv.1.as_slice());
-            intervals_v.push(opts.bounds.3);
+            intervals_v.push(bounds.3);
         }
         None => {
-            intervals_u.push(opts.bounds.0);
-            intervals_u.push(opts.bounds.1);
+            intervals_u.push(bounds.0);
+            intervals_u.push(bounds.1);
 
-            intervals_v.push(opts.bounds.2);
-            intervals_v.push(opts.bounds.3);
+            intervals_v.push(bounds.2);
+            intervals_v.push(bounds.3);
         }
     }
     //}}}
@@ -186,7 +235,7 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> 
             let bounds = (interval[0], interval[1], interval[2], interval[3]);
             if interval[4] == non_val {
                 let (integral, err_est) =
-                    error_estimate(f, &opts.fixed_rule_low, &opts.fixed_rule_high, bounds);
+                    error_estimate(f, &fixed_rule_low, &fixed_rule_high, bounds);
                 //{{{ trace
                 debug!("integral = {}, err_est = {}", integral, err_est);
                 //}}}
@@ -194,7 +243,7 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> 
                 interval[4] = integral;
                 interval[5] = err_est;
 
-                if err_est > opts.tol {
+                if err_est > tol {
                     marked.push(i);
                 }
             }
@@ -240,12 +289,12 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(f: &F, opts: &AdaptiveQuadOpts) -> 
     }
     //}}}
     //{{{ ret
-    AdaptiveQuadResult {
+    Ok(AdaptiveQuadResult {
         integral,
         error_estimate: err_est,
         num_subdiv: intervals.len(),
         num_fn_eval,
-    }
+    })
     //}}}
 }
 //}}}
