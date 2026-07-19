@@ -72,7 +72,7 @@ impl OptionsVerify for AdaptiveQuadOpts {
             ok = false;
         }
 
-        if self.fixed_rule_low.order >= self.fixed_rule_high.order {
+        if self.fixed_rule_low.opts.order >= self.fixed_rule_high.opts.order {
             append_reason(
                 &mut err,
                 "Gauss rule order mismatch, low order greater than high order",
@@ -183,29 +183,32 @@ fn error_estimate<F: Fn(f64) -> f64>(
 /// let f =  |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
 /// let opts = AdaptiveQuadOpts1D {
 ///     bounds: (-3.0, 10.0),
-///     fixed_rule_low: FixedQuad1D::new(&FixedQuadOpts1D {
+///     fixed_rule_low: FixedQuad1D::new(FixedQuadOpts1D {
 ///         gauss_type: GaussQuadType::Legendre,
 ///         order: 10,
 ///         bounds: (-1.0, 1.0),
 ///         subdiv: None,
-///     }),
-///     fixed_rule_high: FixedQuad1D::new(&FixedQuadOpts1D {
+///     })?,
+///     fixed_rule_high: FixedQuad1D::new(FixedQuadOpts1D {
 ///         gauss_type: GaussQuadType::Legendre,
 ///         order: 30,
 ///         bounds: (-1.0, 1.0),
 ///         subdiv:None,
-///     }),
+///     })?,
 ///     tol: 1e-5,
 ///     max_depth: 1000,
 ///     init_subdiv: None,
 ///  };
-/// let res = adaptive_quad_1d(&f, &opts);
+/// let res = adaptive_quad_1d(&f, &opts)?;
+/// # Ok::<(), topohedral_integrate::OptionsError>(())
 /// ```
 #[allow(clippy::doc_overindented_list_items)]
 pub fn adaptive_quad<F: Fn(f64) -> f64>(
     f: &F,
     opts: &AdaptiveQuadOpts,
-) -> AdaptiveQuadResult {
+) -> Result<AdaptiveQuadResult, OptionsError> {
+    opts.is_ok(true)?;
+
     //{{{ trace
     info!("opts: {:?}", opts);
     //}}}
@@ -319,12 +322,12 @@ pub fn adaptive_quad<F: Fn(f64) -> f64>(
     }
     //}}}
     //{{{ ret
-    AdaptiveQuadResult {
+    Ok(AdaptiveQuadResult {
         integral,
         error_estimate: err_est,
         num_subdiv: intervals.len(),
         num_fn_eval,
-    }
+    })
     //}}}
 }
 //}}}

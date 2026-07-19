@@ -11,8 +11,8 @@ use thiserror::Error;
 //}}}
 //--------------------------------------------------------------------------------------------------
 
-/// Simple trait which all options structs must implement.
-pub trait OptionsVerify {
+/// Internal validation implemented by all options structs.
+pub(crate) trait OptionsVerify {
     /// Checks if the options are valid.
     ///
     /// If the options are valid, returns `Ok(())`. Else, returns `Err(OptionsError)` with the

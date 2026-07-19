@@ -18,9 +18,7 @@ The following example integrates \(x^2\) over \([-1, 1]\) with a reusable
 five-point Gauss-Legendre rule:
 
 ```rust
-use topohedral_integrate::{
-    FixedQuad1D, FixedQuadOpts1D, GaussQuadType, OptionsVerify,
-};
+use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
 
 let opts = FixedQuadOpts1D {
     gauss_type: GaussQuadType::Legendre,
@@ -28,9 +26,7 @@ let opts = FixedQuadOpts1D {
     bounds: (-1.0, 1.0),
     subdiv: None,
 };
-opts.is_ok(true).expect("valid quadrature options");
-
-let rule = FixedQuad1D::new(&opts);
+let rule = FixedQuad1D::new(opts).expect("valid quadrature options");
 let integral = rule.integrate(&|x: f64| x.powi(2), None);
 
 assert!((integral - 2.0 / 3.0).abs() < 1e-12);

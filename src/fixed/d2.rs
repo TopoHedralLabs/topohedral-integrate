@@ -4,6 +4,7 @@
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
 use crate::gauss::GaussQuadType;
+use crate::gauss::MAX_ORDER;
 //}}}
 //{{{ std imports
 //}}}
@@ -37,6 +38,15 @@ impl OptionsVerify for FixedQuadOpts {
         } else {
             OptionsError::InvalidOptionsShort
         };
+
+        let valid_u_order =
+            self.order.0 <= MAX_ORDER && self.gauss_type.0.nqp_from_order(self.order.0) >= 2;
+        let valid_v_order =
+            self.order.1 <= MAX_ORDER && self.gauss_type.1.nqp_from_order(self.order.1) >= 2;
+        if !valid_u_order || !valid_v_order {
+            ok = false;
+            append_reason(&mut err, "Quadrature order is not supported");
+        }
 
         if self.bounds.0 > self.bounds.1 || self.bounds.2 > self.bounds.3 {
             ok = false;
@@ -89,57 +99,44 @@ pub struct FixedQuad {
     /// The set of points and weights for the fixed quadrature rule. Point `i` and weight `i`
     /// are stored in `points_weights[3*i..3*i+1]`, and `points_weights[3*i+2]`, respectively.
     pub points_weights: Vec<f64>,
-    /// The underlying Gaussian quadrature type in each dimension
-    pub gauss_type: (GaussQuadType, GaussQuadType),
-    /// The order of the Gaussian quadrature to use for each dimension.
-    pub order: (usize, usize),
-    /// Bounds of the integration region in order ``(umin, max, vmin, vmax)``
-    pub bounds: (f64, f64, f64, f64),
+    /// The options used to construct the rule.
+    pub opts: FixedQuadOpts,
 }
 //}}}
 //{{{ impl: FixedQuad
 impl FixedQuad {
     //{{{ fun: new
-    pub fn new(opts: &FixedQuadOpts) -> Self {
+    pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
+        opts.is_ok(true)?;
+
         let (u_gauss_type, v_gauss_type) = opts.gauss_type;
         let (u_order, v_order) = opts.order;
         let (umin, umax, vmin, vmax) = opts.bounds;
-        let mut u_subdiv: Option<Vec<f64>> = None;
-        let mut v_subdiv: Option<Vec<f64>> = None;
+        let u_subdiv = opts
+            .subdiv
+            .as_ref()
+            .and_then(|subdiv| (!subdiv.0.is_empty()).then_some(subdiv.0.as_slice()));
+        let v_subdiv = opts
+            .subdiv
+            .as_ref()
+            .and_then(|subdiv| (!subdiv.1.is_empty()).then_some(subdiv.1.as_slice()));
 
-        if let Some(subdiv) = &opts.subdiv {
-            if !subdiv.0.is_empty() {
-                u_subdiv = Some(subdiv.0.clone());
-            }
-            if !subdiv.1.is_empty() {
-                v_subdiv = Some(subdiv.1.clone());
-            }
-        }
+        let fixed_rule_u = d1::build_points_weights(u_gauss_type, u_order, (umin, umax), u_subdiv);
 
-        let fixed_rule_u = d1::FixedQuad::new(&d1::FixedQuadOpts {
-            gauss_type: u_gauss_type,
-            order: u_order,
-            bounds: (umin, umax),
-            subdiv: u_subdiv,
-        });
+        let fixed_rule_v = d1::build_points_weights(v_gauss_type, v_order, (vmin, vmax), v_subdiv);
 
-        let fixed_rule_v = d1::FixedQuad::new(&d1::FixedQuadOpts {
-            gauss_type: v_gauss_type,
-            order: v_order,
-            bounds: (vmin, vmax),
-            subdiv: v_subdiv,
-        });
-
-        let nqp = fixed_rule_u.nqp() * fixed_rule_v.nqp();
+        let nqp_u = fixed_rule_u.len() / 2;
+        let nqp_v = fixed_rule_v.len() / 2;
+        let nqp = nqp_u * nqp_v;
         let mut points_weights = Vec::<f64>::with_capacity(3 * nqp);
 
-        for i in 0..fixed_rule_u.nqp() {
-            let xi = fixed_rule_u.points_weights[2 * i];
-            let wi = fixed_rule_u.points_weights[2 * i + 1];
+        for i in 0..nqp_u {
+            let xi = fixed_rule_u[2 * i];
+            let wi = fixed_rule_u[2 * i + 1];
 
-            for j in 0..fixed_rule_v.nqp() {
-                let xj = fixed_rule_v.points_weights[2 * j];
-                let wj = fixed_rule_v.points_weights[2 * j + 1];
+            for j in 0..nqp_v {
+                let xj = fixed_rule_v[2 * j];
+                let wj = fixed_rule_v[2 * j + 1];
 
                 points_weights.push(xi);
                 points_weights.push(xj);
@@ -147,12 +144,10 @@ impl FixedQuad {
             }
         }
 
-        Self {
+        Ok(Self {
             points_weights,
-            gauss_type: opts.gauss_type,
-            order: opts.order,
-            bounds: opts.bounds,
-        }
+            opts,
+        })
     }
     //}}}
     //{{{ fun: integrate
@@ -166,7 +161,7 @@ impl FixedQuad {
         match bounds {
             Some(bounds) => {
                 let (a, b, c, d) = bounds;
-                let (umin, umax, vmin, vmax) = self.bounds;
+                let (umin, umax, vmin, vmax) = self.opts.bounds;
                 let jac_u = (b - a) / (umax - umin);
                 let jac_v = (d - c) / (vmax - vmin);
 
@@ -200,10 +195,10 @@ impl FixedQuad {
 //{{{ fun: fixed_quad
 pub fn fixed_quad<F: Fn(f64, f64) -> f64>(
     f: &F,
-    opts: &FixedQuadOpts,
-) -> f64 {
-    let quad_rule = FixedQuad::new(opts);
-    quad_rule.integrate(f, None)
+    opts: FixedQuadOpts,
+) -> Result<f64, OptionsError> {
+    let quad_rule = FixedQuad::new(opts)?;
+    Ok(quad_rule.integrate(f, None))
 }
 //}}}
 

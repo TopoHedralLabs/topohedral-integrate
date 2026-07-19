@@ -16,14 +16,13 @@ Configure `FixedQuad1D` with `FixedQuadOpts1D`:
 
 `FixedQuad1D::new` precomputes the mapped points and weights.
 `FixedQuad1D::integrate(&f, None)` then integrates over the configured bounds,
-and `nqp()` reports the total point count, including all subdivisions.
+and `nqp()` reports the total point count, including all subdivisions. The
+constructor takes ownership of the options and retains them as `rule.opts`.
 
 The polynomial tests use the same pattern:
 
 ```rust
-use topohedral_integrate::{
-    FixedQuad1D, FixedQuadOpts1D, GaussQuadType, OptionsVerify,
-};
+use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
 
 let opts = FixedQuadOpts1D {
     gauss_type: GaussQuadType::Legendre,
@@ -31,9 +30,7 @@ let opts = FixedQuadOpts1D {
     bounds: (-2.0, 3.0),
     subdiv: Some(vec![0.0]),
 };
-opts.is_ok(true).expect("valid fixed-quadrature options");
-
-let rule = FixedQuad1D::new(&opts);
+let rule = FixedQuad1D::new(opts).expect("valid fixed-quadrature options");
 let integral = rule.integrate(&|x: f64| x.powi(4), None);
 
 assert!((integral - 55.0).abs() < 1e-12);
@@ -49,12 +46,13 @@ interval:
 ```rust
 use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
 
-let rule = FixedQuad1D::new(&FixedQuadOpts1D {
+let rule = FixedQuad1D::new(FixedQuadOpts1D {
     gauss_type: GaussQuadType::Legendre,
     order: 9,
     bounds: (-1.0, 1.0),
     subdiv: None,
-});
+})
+.expect("valid fixed-quadrature options");
 let integral = rule.integrate(&|x: f64| x.powi(2), Some((0.0, 2.0)));
 assert!((integral - 8.0 / 3.0).abs() < 1e-12);
 ```
@@ -72,9 +70,7 @@ use one value per coordinate direction:
 The function supplied to `integrate` has type `Fn(f64, f64) -> f64`:
 
 ```rust
-use topohedral_integrate::{
-    FixedQuad2D, FixedQuadOpts2D, GaussQuadType, OptionsVerify,
-};
+use topohedral_integrate::{FixedQuad2D, FixedQuadOpts2D, GaussQuadType};
 
 let opts = FixedQuadOpts2D {
     gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
@@ -82,9 +78,7 @@ let opts = FixedQuadOpts2D {
     bounds: (-1.0, 1.0, -1.0, 1.0),
     subdiv: None,
 };
-opts.is_ok(true).expect("valid fixed-quadrature options");
-
-let rule = FixedQuad2D::new(&opts);
+let rule = FixedQuad2D::new(opts).expect("valid fixed-quadrature options");
 let integral = rule.integrate(&|x: f64, y: f64| x.powi(2) * y.powi(2), None);
 
 assert!((integral - 4.0 / 9.0).abs() < 1e-12);
@@ -109,7 +103,8 @@ let opts = FixedQuadOpts1D {
     subdiv: None,
 };
 
-let integral = fixed_quad_1d(&|x: f64| x.powi(4), &opts);
+let integral = fixed_quad_1d(&|x: f64| x.powi(4), opts)
+    .expect("valid fixed-quadrature options");
 assert!((integral - 2.0 / 5.0).abs() < 1e-12);
 ```
 

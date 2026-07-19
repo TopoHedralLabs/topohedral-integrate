@@ -6,7 +6,8 @@ mod d1_tests {
     use serde::Deserialize;
     use std::fs;
     use topohedral_integrate::{
-        fixed_quad_1d as fixed_quad, FixedQuadOpts1D as FixedQuadOpts, GaussQuadType, OptionsVerify,
+        fixed_quad_1d as fixed_quad, FixedQuad1D as FixedQuad, FixedQuadOpts1D as FixedQuadOpts,
+        GaussQuadType,
     };
 
     const MAX_REL: f64 = 1e-14;
@@ -51,12 +52,12 @@ mod d1_tests {
     fn test_fixed_quad_opts() {
         let opts = FixedQuadOpts {
             gauss_type: GaussQuadType::Legendre,
-            order: 1,
+            order: 3,
             bounds: (1.0, 0.0),
             subdiv: Some(Vec::<f64>::new()),
         };
 
-        let is_ok = opts.is_ok(true);
+        let is_ok = FixedQuad::new(opts);
         assert!(is_ok.is_err());
         match is_ok {
             Ok(_) => panic!("Expected error"),
@@ -69,6 +70,21 @@ mod d1_tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_fixed_quad_stores_opts() {
+        let rule = FixedQuad::new(FixedQuadOpts {
+            gauss_type: GaussQuadType::Legendre,
+            order: 3,
+            bounds: (-1.0, 1.0),
+            subdiv: Some(vec![0.0]),
+        })
+        .unwrap();
+
+        assert_eq!(rule.opts.order, 3);
+        assert_eq!(rule.opts.bounds, (-1.0, 1.0));
+        assert_eq!(rule.opts.subdiv, Some(vec![0.0]));
     }
     //}}}
     //{{{ collection: legendre tests
@@ -96,7 +112,7 @@ mod d1_tests {
                         bounds: range,
                         subdiv: None,
                     };
-                    let integral2 = fixed_quad(&pol, &opts);
+                    let integral2 = fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
                 {
@@ -110,7 +126,7 @@ mod d1_tests {
                         bounds: range,
                         subdiv: vec![a, b].into(),
                     };
-                    let integral2 = fixed_quad(&pol, &opts);
+                    let integral2 = fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
             }
@@ -177,7 +193,7 @@ mod d1_tests {
                         bounds: range,
                         subdiv: None,
                     };
-                    let integral2 = fixed_quad(&pol, &opts);
+                    let integral2 = fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
                 {
@@ -191,7 +207,7 @@ mod d1_tests {
                         bounds: range,
                         subdiv: vec![a, b].into(),
                     };
-                    let integral2 = fixed_quad(&pol, &opts);
+                    let integral2 = fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
             }
@@ -230,11 +246,11 @@ mod d2_tests {
 
     //{{{ collection: imports
     use approx::assert_relative_eq;
-    use topohedral_integrate::{GaussQuadType, OptionsVerify};
+    use topohedral_integrate::GaussQuadType;
 
     mod d2 {
         pub use topohedral_integrate::{
-            fixed_quad_2d as fixed_quad, FixedQuadOpts2D as FixedQuadOpts,
+            fixed_quad_2d as fixed_quad, FixedQuad2D as FixedQuad, FixedQuadOpts2D as FixedQuadOpts,
         };
     }
 
@@ -284,12 +300,12 @@ mod d2_tests {
     fn test_fixed_quad_opts1() {
         let opts = d2::FixedQuadOpts {
             gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
-            order: (2, 2),
+            order: (3, 3),
             bounds: (2.0, 0.0, 2.0, 0.0),
             subdiv: Some((Vec::<f64>::new(), Vec::new())),
         };
 
-        let is_ok = opts.is_ok(true);
+        let is_ok = d2::FixedQuad::new(opts);
         assert!(is_ok.is_err());
         match is_ok {
             Ok(_) => panic!("Expected error"),
@@ -308,12 +324,12 @@ mod d2_tests {
     fn test_fixed_quad_opts2() {
         let opts = d2::FixedQuadOpts {
             gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
-            order: (2, 2),
+            order: (3, 3),
             bounds: (1.0, 2.0, 1.0, 2.0),
             subdiv: Some((vec![0.0], vec![0.0])),
         };
 
-        let is_ok = opts.is_ok(true);
+        let is_ok = d2::FixedQuad::new(opts);
         assert!(is_ok.is_err());
         match is_ok {
             Ok(_) => panic!("Expected error"),
@@ -326,6 +342,21 @@ mod d2_tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_fixed_quad_stores_opts() {
+        let rule = d2::FixedQuad::new(d2::FixedQuadOpts {
+            gauss_type: (GaussQuadType::Legendre, GaussQuadType::Lobatto),
+            order: (3, 3),
+            bounds: (-1.0, 1.0, -2.0, 2.0),
+            subdiv: Some((vec![0.0], vec![1.0])),
+        })
+        .unwrap();
+
+        assert_eq!(rule.opts.order, (3, 3));
+        assert_eq!(rule.opts.bounds, (-1.0, 1.0, -2.0, 2.0));
+        assert_eq!(rule.opts.subdiv, Some((vec![0.0], vec![1.0])));
     }
     //}}}
     //{{{ collection: legendre tests
@@ -358,7 +389,7 @@ mod d2_tests {
                         bounds: range,
                         subdiv: None,
                     };
-                    let integral2 = d2::fixed_quad(&pol, &opts);
+                    let integral2 = d2::fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
                 {
@@ -375,7 +406,7 @@ mod d2_tests {
                         bounds: range,
                         subdiv: Some((vec![a, b], vec![c, d])),
                     };
-                    let integral2 = d2::fixed_quad(&pol, &opts);
+                    let integral2 = d2::fixed_quad(&pol, opts).unwrap();
 
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
@@ -446,7 +477,7 @@ mod d2_tests {
                         bounds: range,
                         subdiv: None,
                     };
-                    let integral2 = d2::fixed_quad(&pol, &opts);
+                    let integral2 = d2::fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
                 {
@@ -463,7 +494,7 @@ mod d2_tests {
                         bounds: range,
                         subdiv: Some((vec![a, b], vec![c, d])),
                     };
-                    let integral2 = d2::fixed_quad(&pol, &opts);
+                    let integral2 = d2::fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
             }

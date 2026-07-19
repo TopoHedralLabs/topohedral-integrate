@@ -26,16 +26,17 @@ known corner at \(x=-1\) allows the algorithm to start with smooth pieces:
 ```rust
 use topohedral_integrate::{
     adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuad1D, FixedQuadOpts1D,
-    GaussQuadType, OptionsVerify,
+    GaussQuadType,
 };
 
 fn legendre_rule(order: usize) -> FixedQuad1D {
-    FixedQuad1D::new(&FixedQuadOpts1D {
+    FixedQuad1D::new(FixedQuadOpts1D {
         gauss_type: GaussQuadType::Legendre,
         order,
         bounds: (-1.0, 1.0),
         subdiv: None,
     })
+    .expect("valid fixed-quadrature options")
 }
 
 let opts = AdaptiveQuadOpts1D {
@@ -46,9 +47,8 @@ let opts = AdaptiveQuadOpts1D {
     max_depth: 1000,
     init_subdiv: Some(vec![-1.0]),
 };
-opts.is_ok(true).expect("valid adaptive options");
-
-let result = adaptive_quad_1d(&|x: f64| (x + 1.0).abs(), &opts);
+let result = adaptive_quad_1d(&|x: f64| (x + 1.0).abs(), &opts)
+    .expect("valid adaptive options");
 
 assert!((result.integral - 29.0 / 2.0).abs() < 1e-10);
 assert!(result.error_estimate < result.num_subdiv as f64 * opts.tol);
@@ -70,16 +70,17 @@ adaptive routine remaps them to each subinterval.
 ```rust
 use topohedral_integrate::{
     adaptive_quad_2d, AdaptiveQuadOpts2D, FixedQuad2D, FixedQuadOpts2D,
-    GaussQuadType, OptionsVerify,
+    GaussQuadType,
 };
 
 fn legendre_rule(order: usize) -> FixedQuad2D {
-    FixedQuad2D::new(&FixedQuadOpts2D {
+    FixedQuad2D::new(FixedQuadOpts2D {
         gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
         order: (order, order),
         bounds: (-1.0, 1.0, -1.0, 1.0),
         subdiv: None,
     })
+    .expect("valid fixed-quadrature options")
 }
 
 let opts = AdaptiveQuadOpts2D {
@@ -90,9 +91,8 @@ let opts = AdaptiveQuadOpts2D {
     max_depth: (10, 10),
     init_subdiv: None,
 };
-opts.is_ok(true).expect("valid adaptive options");
-
-let result = adaptive_quad_2d(&|x: f64, y: f64| x.powi(2) + y.powi(2), &opts);
+let result = adaptive_quad_2d(&|x: f64, y: f64| x.powi(2) + y.powi(2), &opts)
+    .expect("valid adaptive options");
 assert!((result.integral - 2.0 / 3.0).abs() < 1e-12);
 ```
 
@@ -103,8 +103,8 @@ When a discontinuity or corner location is known in advance, provide it through
 
 ## Results and error estimates
 
-`adaptive_quad_1d` returns `AdaptiveQuadResult1D`, and `adaptive_quad_2d`
-returns `AdaptiveQuadResult2D`. Both expose:
+On success, `adaptive_quad_1d` returns `AdaptiveQuadResult1D`, and
+`adaptive_quad_2d` returns `AdaptiveQuadResult2D`. Both expose:
 
 - `integral`: the sum of the accepted low-order estimates;
 - `error_estimate`: the sum of the low/high differences;

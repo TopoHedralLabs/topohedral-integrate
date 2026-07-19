@@ -29,17 +29,19 @@ return both the integral and diagnostic information.
 
 ## Options validation
 
-The fixed and adaptive options types implement `OptionsVerify`. Validation is
-explicit; call `opts.is_ok(true)` before constructing a rule or starting an
-integration when options may come from user input:
+Options are validated by the public operation that consumes or uses them.
+`FixedQuad1D::new`, `FixedQuad2D::new`, the one-shot fixed helpers, and the
+adaptive integration functions return `Result` and report invalid options as
+an `OptionsError`:
 
 ```rust
-use topohedral_integrate::OptionsVerify;
+use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
 
-fn validate<T: OptionsVerify>(opts: &T) {
-    opts.is_ok(true).expect("invalid quadrature options");
-}
+let result = FixedQuad1D::new(FixedQuadOpts1D {
+    gauss_type: GaussQuadType::Legendre,
+    order: 9,
+    bounds: (-1.0, 1.0),
+    subdiv: None,
+});
+assert!(result.is_ok());
 ```
-
-Passing `true` asks for a detailed `OptionsError`; passing `false` performs the
-short check without building diagnostic text.

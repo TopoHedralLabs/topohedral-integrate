@@ -46,7 +46,7 @@ impl OptionsVerify for AdaptiveQuadOpts {
             );
         }
 
-        if self.fixed_rule_low.order >= self.fixed_rule_high.order {
+        if self.fixed_rule_low.opts.order >= self.fixed_rule_high.opts.order {
             ok = false;
             append_reason(
                 &mut err,
@@ -131,7 +131,9 @@ fn error_estimate<F: Fn(f64, f64) -> f64>(
 pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
     f: &F,
     opts: &AdaptiveQuadOpts,
-) -> AdaptiveQuadResult {
+) -> Result<AdaptiveQuadResult, OptionsError> {
+    opts.is_ok(true)?;
+
     //{{{ trace
     info!("opts: {:?}", opts);
     //}}}
@@ -246,12 +248,12 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
     }
     //}}}
     //{{{ ret
-    AdaptiveQuadResult {
+    Ok(AdaptiveQuadResult {
         integral,
         error_estimate: err_est,
         num_subdiv: intervals.len(),
         num_fn_eval,
-    }
+    })
     //}}}
 }
 //}}}

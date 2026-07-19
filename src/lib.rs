@@ -24,7 +24,7 @@ pub use adaptive::d2::{
     adaptive_quad as adaptive_quad_2d, AdaptiveQuadOpts as AdaptiveQuadOpts2D,
     AdaptiveQuadResult as AdaptiveQuadResult2D,
 };
-pub use common::{OptionsError, OptionsVerify};
+pub use common::OptionsError;
 pub use fixed::d1::{
     fixed_quad as fixed_quad_1d, FixedQuad as FixedQuad1D, FixedQuadOpts as FixedQuadOpts1D,
 };
