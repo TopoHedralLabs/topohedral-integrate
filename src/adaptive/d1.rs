@@ -24,8 +24,8 @@ use topohedral_tracing::*;
 /// of subdivisions.
 ///
 /// The `bounds` field specifies the interval over which the integration is performed.
-/// The `gauss_rule_low` and `gauss_rule_high` fields specify the low-order and
-/// high-order Gauss quadrature rules to use, respectively. The `tol` field sets the
+/// The `fixed_rule_low` and `fixed_rule_high` fields specify the low-order and
+/// high-order fixed-rule configurations to use, respectively. The `tol` field sets the
 /// error tolerance for the integration, and the `max_depth` field sets the maximum
 /// number of subdivisions allowed.
 ///
@@ -37,10 +37,10 @@ use topohedral_tracing::*;
 pub struct AdaptiveQuadOpts {
     /// bounds of the integral
     pub bounds: (f64, f64),
-    /// Low-order Gauss quadrature rule
-    pub fixed_rule_low: fi::d1::FixedQuad,
-    /// High-order Gauss quadrature rule
-    pub fixed_rule_high: fi::d1::FixedQuad,
+    /// Options for the low-order Gauss quadrature rule.
+    pub fixed_rule_low: fi::d1::FixedQuadOpts,
+    /// Options for the high-order Gauss quadrature rule.
+    pub fixed_rule_high: fi::d1::FixedQuadOpts,
     /// exit-tolerance for the integral
     pub tol: f64,
     /// Maximum number of subdivisions
@@ -72,7 +72,7 @@ impl OptionsVerify for AdaptiveQuadOpts {
             ok = false;
         }
 
-        if self.fixed_rule_low.opts.order >= self.fixed_rule_high.opts.order {
+        if self.fixed_rule_low.order >= self.fixed_rule_high.order {
             append_reason(
                 &mut err,
                 "Gauss rule order mismatch, low order greater than high order",
@@ -177,35 +177,35 @@ fn error_estimate<F: Fn(f64) -> f64>(
 /// ```
 ///
 /// use topohedral_integrate::{
-///     adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuad1D, FixedQuadOpts1D, GaussQuadType,
+///     adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuadOpts1D, GaussQuadType,
 /// };
 ///
 /// let f =  |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
 /// let opts = AdaptiveQuadOpts1D {
 ///     bounds: (-3.0, 10.0),
-///     fixed_rule_low: FixedQuad1D::new(FixedQuadOpts1D {
+///     fixed_rule_low: FixedQuadOpts1D {
 ///         gauss_type: GaussQuadType::Legendre,
 ///         order: 10,
 ///         bounds: (-1.0, 1.0),
 ///         subdiv: None,
-///     })?,
-///     fixed_rule_high: FixedQuad1D::new(FixedQuadOpts1D {
+///     },
+///     fixed_rule_high: FixedQuadOpts1D {
 ///         gauss_type: GaussQuadType::Legendre,
 ///         order: 30,
 ///         bounds: (-1.0, 1.0),
 ///         subdiv:None,
-///     })?,
+///     },
 ///     tol: 1e-5,
 ///     max_depth: 1000,
 ///     init_subdiv: None,
 ///  };
-/// let res = adaptive_quad_1d(&f, &opts)?;
+/// let res = adaptive_quad_1d(&f, opts)?;
 /// # Ok::<(), topohedral_integrate::OptionsError>(())
 /// ```
 #[allow(clippy::doc_overindented_list_items)]
 pub fn adaptive_quad<F: Fn(f64) -> f64>(
     f: &F,
-    opts: &AdaptiveQuadOpts,
+    opts: AdaptiveQuadOpts,
 ) -> Result<AdaptiveQuadResult, OptionsError> {
     opts.is_ok(true)?;
 
@@ -213,24 +213,35 @@ pub fn adaptive_quad<F: Fn(f64) -> f64>(
     info!("opts: {:?}", opts);
     //}}}
     //{{{ init
+    let AdaptiveQuadOpts {
+        bounds,
+        fixed_rule_low,
+        fixed_rule_high,
+        tol,
+        max_depth: _,
+        init_subdiv,
+    } = opts;
+    let fixed_rule_low = fi::d1::FixedQuad::new(fixed_rule_low)?;
+    let fixed_rule_high = fi::d1::FixedQuad::new(fixed_rule_high)?;
+
     let non_val = -1.0f64;
     let mut intervals = Vec::<[f64; 4]>::new();
-    match &opts.init_subdiv {
+    match &init_subdiv {
         Some(subdiv) => {
-            intervals.push([opts.bounds.0, *subdiv.first().unwrap(), non_val, non_val]);
+            intervals.push([bounds.0, *subdiv.first().unwrap(), non_val, non_val]);
             for i in 0..subdiv.len() - 1 {
                 intervals.push([subdiv[i], subdiv[i + 1], non_val, non_val]);
             }
-            intervals.push([*subdiv.last().unwrap(), opts.bounds.1, non_val, non_val]);
+            intervals.push([*subdiv.last().unwrap(), bounds.1, non_val, non_val]);
         }
         None => {
-            intervals.push([opts.bounds.0, opts.bounds.1, non_val, non_val]);
+            intervals.push([bounds.0, bounds.1, non_val, non_val]);
         }
     }
     let mut has_converged = false;
     let mut marked = Vec::<usize>::with_capacity(100);
     let mut num_fn_eval = 0;
-    let nqp = opts.fixed_rule_low.nqp() + opts.fixed_rule_high.nqp();
+    let nqp = fixed_rule_low.nqp() + fixed_rule_high.nqp();
     //}}}
     //{{{ com: perform adaptive quadrature
     let mut iter = 0;
@@ -253,7 +264,7 @@ pub fn adaptive_quad<F: Fn(f64) -> f64>(
             let bounds = (interval[0], interval[1]);
             if interval[2] == non_val {
                 let (integral, err_est) =
-                    error_estimate(f, &opts.fixed_rule_low, &opts.fixed_rule_high, bounds);
+                    error_estimate(f, &fixed_rule_low, &fixed_rule_high, bounds);
                 //{{{ trace
                 debug!("integral = {}, err_est = {}", integral, err_est);
                 //}}}
@@ -261,7 +272,7 @@ pub fn adaptive_quad<F: Fn(f64) -> f64>(
                 interval[2] = integral;
                 interval[3] = err_est;
 
-                if err_est > opts.tol {
+                if err_est > tol {
                     //{{{ trace
                     debug!("pushing i = {} to marked", i);
                     //}}}

@@ -7,14 +7,15 @@ loss of smoothness.
 
 The entry points are the functions `adaptive_quad_1d` and
 `adaptive_quad_2d`. Each takes a function by reference and a dimension-specific
-options struct.
+options struct by value. They construct the low- and high-order fixed rules
+internally from the contained fixed-rule options.
 
 ## One-dimensional integration
 
 `AdaptiveQuadOpts1D` contains:
 
 - `bounds`: `(lower, upper)` for the complete integral;
-- `fixed_rule_low` and `fixed_rule_high`: reusable `FixedQuad1D` estimators,
+- `fixed_rule_low` and `fixed_rule_high`: `FixedQuadOpts1D` configurations,
   with the low rule having a lower order than the high rule;
 - `tol`: the accepted low/high difference on each final subinterval;
 - `max_depth`: the subdivision-depth configuration;
@@ -25,33 +26,32 @@ known corner at \(x=-1\) allows the algorithm to start with smooth pieces:
 
 ```rust
 use topohedral_integrate::{
-    adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuad1D, FixedQuadOpts1D,
-    GaussQuadType,
+    adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuadOpts1D, GaussQuadType,
 };
-
-fn legendre_rule(order: usize) -> FixedQuad1D {
-    FixedQuad1D::new(FixedQuadOpts1D {
-        gauss_type: GaussQuadType::Legendre,
-        order,
-        bounds: (-1.0, 1.0),
-        subdiv: None,
-    })
-    .expect("valid fixed-quadrature options")
-}
 
 let opts = AdaptiveQuadOpts1D {
     bounds: (-3.0, 4.0),
-    fixed_rule_low: legendre_rule(10),
-    fixed_rule_high: legendre_rule(30),
+    fixed_rule_low: FixedQuadOpts1D {
+        gauss_type: GaussQuadType::Legendre,
+        order: 10,
+        bounds: (-1.0, 1.0),
+        subdiv: None,
+    },
+    fixed_rule_high: FixedQuadOpts1D {
+        gauss_type: GaussQuadType::Legendre,
+        order: 30,
+        bounds: (-1.0, 1.0),
+        subdiv: None,
+    },
     tol: 1e-5,
     max_depth: 1000,
     init_subdiv: Some(vec![-1.0]),
 };
-let result = adaptive_quad_1d(&|x: f64| (x + 1.0).abs(), &opts)
+let result = adaptive_quad_1d(&|x: f64| (x + 1.0).abs(), opts)
     .expect("valid adaptive options");
 
 assert!((result.integral - 29.0 / 2.0).abs() < 1e-10);
-assert!(result.error_estimate < result.num_subdiv as f64 * opts.tol);
+assert!(result.error_estimate < result.num_subdiv as f64 * 1e-5);
 ```
 
 The low and high fixed rules are conventionally built on \([-1, 1]\); the
@@ -62,36 +62,35 @@ adaptive routine remaps them to each subinterval.
 `AdaptiveQuadOpts2D` uses the same design with tensor-product fixed rules:
 
 - `bounds`: `(u_min, u_max, v_min, v_max)`;
-- `fixed_rule_low` and `fixed_rule_high`: `FixedQuad2D` values;
+- `fixed_rule_low` and `fixed_rule_high`: `FixedQuadOpts2D` configurations;
 - `tol`: the accepted low/high difference on each final rectangle;
 - `max_depth`: `(u_depth, v_depth)`;
 - `init_subdiv`: optional `(u_breakpoints, v_breakpoints)`.
 
 ```rust
 use topohedral_integrate::{
-    adaptive_quad_2d, AdaptiveQuadOpts2D, FixedQuad2D, FixedQuadOpts2D,
-    GaussQuadType,
+    adaptive_quad_2d, AdaptiveQuadOpts2D, FixedQuadOpts2D, GaussQuadType,
 };
-
-fn legendre_rule(order: usize) -> FixedQuad2D {
-    FixedQuad2D::new(FixedQuadOpts2D {
-        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
-        order: (order, order),
-        bounds: (-1.0, 1.0, -1.0, 1.0),
-        subdiv: None,
-    })
-    .expect("valid fixed-quadrature options")
-}
 
 let opts = AdaptiveQuadOpts2D {
     bounds: (0.0, 1.0, 0.0, 1.0),
-    fixed_rule_low: legendre_rule(3),
-    fixed_rule_high: legendre_rule(7),
+    fixed_rule_low: FixedQuadOpts2D {
+        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+        order: (3, 3),
+        bounds: (-1.0, 1.0, -1.0, 1.0),
+        subdiv: None,
+    },
+    fixed_rule_high: FixedQuadOpts2D {
+        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+        order: (7, 7),
+        bounds: (-1.0, 1.0, -1.0, 1.0),
+        subdiv: None,
+    },
     tol: 1e-8,
     max_depth: (10, 10),
     init_subdiv: None,
 };
-let result = adaptive_quad_2d(&|x: f64, y: f64| x.powi(2) + y.powi(2), &opts)
+let result = adaptive_quad_2d(&|x: f64, y: f64| x.powi(2) + y.powi(2), opts)
     .expect("valid adaptive options");
 assert!((result.integral - 2.0 / 3.0).abs() < 1e-12);
 ```

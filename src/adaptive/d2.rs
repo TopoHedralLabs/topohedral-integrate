@@ -17,8 +17,8 @@ use topohedral_tracing::*;
 #[derive(Debug)]
 pub struct AdaptiveQuadOpts {
     pub bounds: (f64, f64, f64, f64),
-    pub fixed_rule_low: fi::d2::FixedQuad,
-    pub fixed_rule_high: fi::d2::FixedQuad,
+    pub fixed_rule_low: fi::d2::FixedQuadOpts,
+    pub fixed_rule_high: fi::d2::FixedQuadOpts,
     pub tol: f64,
     pub max_depth: (usize, usize),
     pub init_subdiv: Option<(Vec<f64>, Vec<f64>)>,
@@ -46,7 +46,7 @@ impl OptionsVerify for AdaptiveQuadOpts {
             );
         }
 
-        if self.fixed_rule_low.opts.order >= self.fixed_rule_high.opts.order {
+        if self.fixed_rule_low.order >= self.fixed_rule_high.order {
             ok = false;
             append_reason(
                 &mut err,
@@ -130,7 +130,7 @@ fn error_estimate<F: Fn(f64, f64) -> f64>(
 //{{{ fun: adaptive_quad
 pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
     f: &F,
-    opts: &AdaptiveQuadOpts,
+    opts: AdaptiveQuadOpts,
 ) -> Result<AdaptiveQuadResult, OptionsError> {
     opts.is_ok(true)?;
 
@@ -138,6 +138,17 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
     info!("opts: {:?}", opts);
     //}}}
     //{{{ init
+    let AdaptiveQuadOpts {
+        bounds,
+        fixed_rule_low,
+        fixed_rule_high,
+        tol,
+        max_depth: _,
+        init_subdiv,
+    } = opts;
+    let fixed_rule_low = fi::d2::FixedQuad::new(fixed_rule_low)?;
+    let fixed_rule_high = fi::d2::FixedQuad::new(fixed_rule_high)?;
+
     let non_val = -1.0f64;
     let mut intervals = Vec::<[f64; 6]>::new();
     let mut intervals_u = Vec::<f64>::new();
@@ -145,25 +156,25 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
     let mut has_converged = false;
     let mut marked = Vec::<usize>::with_capacity(100);
     let mut num_fn_eval = 0;
-    let nqp = opts.fixed_rule_low.nqp() + opts.fixed_rule_high.nqp();
+    let nqp = fixed_rule_low.nqp() + fixed_rule_high.nqp();
     //}}}
     //{{{ com: find the initial intervals in u and v
-    match &opts.init_subdiv {
+    match &init_subdiv {
         Some(subdiv) => {
-            intervals_u.push(opts.bounds.0);
+            intervals_u.push(bounds.0);
             intervals_u.extend_from_slice(subdiv.0.as_slice());
-            intervals_u.push(opts.bounds.1);
+            intervals_u.push(bounds.1);
 
-            intervals_v.push(opts.bounds.2);
+            intervals_v.push(bounds.2);
             intervals_v.extend_from_slice(subdiv.1.as_slice());
-            intervals_v.push(opts.bounds.3);
+            intervals_v.push(bounds.3);
         }
         None => {
-            intervals_u.push(opts.bounds.0);
-            intervals_u.push(opts.bounds.1);
+            intervals_u.push(bounds.0);
+            intervals_u.push(bounds.1);
 
-            intervals_v.push(opts.bounds.2);
-            intervals_v.push(opts.bounds.3);
+            intervals_v.push(bounds.2);
+            intervals_v.push(bounds.3);
         }
     }
     //}}}
@@ -194,7 +205,7 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
             let bounds = (interval[0], interval[1], interval[2], interval[3]);
             if interval[4] == non_val {
                 let (integral, err_est) =
-                    error_estimate(f, &opts.fixed_rule_low, &opts.fixed_rule_high, bounds);
+                    error_estimate(f, &fixed_rule_low, &fixed_rule_high, bounds);
                 //{{{ trace
                 debug!("integral = {}, err_est = {}", integral, err_est);
                 //}}}
@@ -202,7 +213,7 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
                 interval[4] = integral;
                 interval[5] = err_est;
 
-                if err_est > opts.tol {
+                if err_est > tol {
                     marked.push(i);
                 }
             }

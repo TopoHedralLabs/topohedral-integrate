@@ -8,13 +8,7 @@ mod d1_tests {
     //!   in a way that you can justify then change the expected values.
 
     use approx::assert_abs_diff_eq;
-    use topohedral_integrate::{
-        FixedQuad1D as FixedQuadD1, FixedQuadOpts1D as FixedQuadOptsD1, GaussQuadType,
-    };
-
-    fn fixed_rule(opts: FixedQuadOptsD1) -> FixedQuadD1 {
-        FixedQuadD1::new(opts).unwrap()
-    }
+    use topohedral_integrate::{FixedQuadOpts1D as FixedQuadOptsD1, GaussQuadType};
 
     mod d1 {
         pub use topohedral_integrate::{
@@ -27,24 +21,24 @@ mod d1_tests {
     fn test_adaptive_quad_opts() {
         let opts = d1::AdaptiveQuadOpts {
             bounds: (1.0, 0.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD1 {
+            fixed_rule_low: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD1 {
+            },
+            fixed_rule_high: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: -1e-5,
             max_depth: 0,
             init_subdiv: None,
         };
 
-        let is_ok = d1::adaptive_quad(&|_: f64| 0.0, &opts);
+        let is_ok = d1::adaptive_quad(&|_: f64| 0.0, opts);
         assert!(is_ok.is_err());
         match is_ok {
             Ok(_) => panic!("Expected error"),
@@ -68,27 +62,28 @@ mod d1_tests {
         let f = |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
         let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 10.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD1 {
+            fixed_rule_low: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD1 {
+            },
+            fixed_rule_high: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: 1e-5,
             max_depth: 1000,
             init_subdiv: None,
         };
 
-        let res = d1::adaptive_quad(&f, &opts).unwrap();
+        let tol = opts.tol;
+        let res = d1::adaptive_quad(&f, opts).unwrap();
 
         let true_integral = 2133443.0 / 15.0;
-        let err_ub = (res.num_subdiv as f64) * opts.tol;
+        let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 1);
@@ -102,26 +97,27 @@ mod d1_tests {
         let f = |x: f64| x.sin();
         let opts = d1::AdaptiveQuadOpts {
             bounds: (0.0, 30.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD1 {
+            fixed_rule_low: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD1 {
+            },
+            fixed_rule_high: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: 1e-5,
             max_depth: 1000,
             init_subdiv: None,
         };
-        let res = d1::adaptive_quad(&f, &opts).unwrap();
+        let tol = opts.tol;
+        let res = d1::adaptive_quad(&f, opts).unwrap();
 
         let true_integral = 1.0 - (30.0f64).cos();
-        let err_ub = (res.num_subdiv as f64) * opts.tol;
+        let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 8);
@@ -132,44 +128,62 @@ mod d1_tests {
     #[test]
     fn test_adaptive_quad_3() {
         let f = |x: f64| (x + 1.0).abs();
-        let mut opts = d1::AdaptiveQuadOpts {
+        let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 4.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD1 {
+            fixed_rule_low: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD1 {
+            },
+            fixed_rule_high: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: 1e-5,
             max_depth: 1000,
             init_subdiv: None,
         };
 
-        let res1 = d1::adaptive_quad(&f, &opts).unwrap();
+        let tol = opts.tol;
+        let res1 = d1::adaptive_quad(&f, opts).unwrap();
 
         let true_integral = 29.0 / 2.0;
 
         // no init_subdiv
         {
-            let err_ub = res1.num_subdiv as f64 * opts.tol;
+            let err_ub = res1.num_subdiv as f64 * tol;
             assert_abs_diff_eq!(res1.integral, true_integral, epsilon = err_ub);
             assert!(res1.error_estimate < err_ub);
             assert_eq!(res1.num_subdiv, 8);
             assert_eq!(res1.num_fn_eval, 300);
         }
 
-        opts.init_subdiv = Some(vec![-1.0]);
-        let res2 = d1::adaptive_quad(&f, &opts).unwrap();
+        let opts = d1::AdaptiveQuadOpts {
+            bounds: (-3.0, 4.0),
+            fixed_rule_low: FixedQuadOptsD1 {
+                gauss_type: GaussQuadType::Legendre,
+                order: 10,
+                bounds: (-1.0, 1.0),
+                subdiv: None,
+            },
+            fixed_rule_high: FixedQuadOptsD1 {
+                gauss_type: GaussQuadType::Legendre,
+                order: 30,
+                bounds: (-1.0, 1.0),
+                subdiv: None,
+            },
+            tol,
+            max_depth: 1000,
+            init_subdiv: Some(vec![-1.0]),
+        };
+        let res2 = d1::adaptive_quad(&f, opts).unwrap();
 
         // with init_subdiv
         {
-            let err_ub = res2.num_subdiv as f64 * opts.tol;
+            let err_ub = res2.num_subdiv as f64 * tol;
             assert_abs_diff_eq!(res1.integral, true_integral, epsilon = err_ub);
             assert!(res2.error_estimate < err_ub);
             assert_eq!(res2.num_subdiv, 2);
@@ -182,28 +196,29 @@ mod d1_tests {
         let f = |x: f64| (-x.powi(2)).exp();
         let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 3.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD1 {
+            fixed_rule_low: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD1 {
+            },
+            fixed_rule_high: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: 1e-5,
             max_depth: 1000,
             init_subdiv: None,
         };
 
-        let res = d1::adaptive_quad(&f, &opts).unwrap();
+        let tol = opts.tol;
+        let res = d1::adaptive_quad(&f, opts).unwrap();
 
         // sqrt(pi) * erf(3)
         let true_integral = 1.77241469651904;
-        let err_ub = (res.num_subdiv as f64) * opts.tol;
+        let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 4);
@@ -216,27 +231,28 @@ mod d1_tests {
         let f = |x: f64| x.ln();
         let opts = d1::AdaptiveQuadOpts {
             bounds: (0.0, 10.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD1 {
+            fixed_rule_low: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD1 {
+            },
+            fixed_rule_high: FixedQuadOptsD1 {
                 gauss_type: GaussQuadType::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: 1e-5,
             max_depth: 1000,
             init_subdiv: None,
         };
 
-        let res = d1::adaptive_quad(&f, &opts).unwrap();
+        let tol = opts.tol;
+        let res = d1::adaptive_quad(&f, opts).unwrap();
 
         let true_integral = -10.0 + 10.0 * 10.0f64.ln();
-        let err_ub = (res.num_subdiv as f64) * opts.tol;
+        let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 16);
@@ -253,13 +269,7 @@ mod d2_tests {
     //!
 
     use approx::assert_abs_diff_eq;
-    use topohedral_integrate::{
-        FixedQuad2D as FixedQuadD2, FixedQuadOpts2D as FixedQuadOptsD2, GaussQuadType,
-    };
-
-    fn fixed_rule(opts: FixedQuadOptsD2) -> FixedQuadD2 {
-        FixedQuadD2::new(opts).unwrap()
-    }
+    use topohedral_integrate::{FixedQuadOpts2D as FixedQuadOptsD2, GaussQuadType};
 
     mod d2 {
         pub use topohedral_integrate::{
@@ -271,24 +281,24 @@ mod d2_tests {
     fn test_adaptive_quad_opts() {
         let opts = d2::AdaptiveQuadOpts {
             bounds: (1.0, 0.0, 1.0, 0.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD2 {
+            fixed_rule_low: FixedQuadOptsD2 {
                 gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                 order: (30, 30),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD2 {
+            },
+            fixed_rule_high: FixedQuadOptsD2 {
                 gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                 order: (10, 10),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: -1e-5,
             max_depth: (0, 0),
             init_subdiv: None,
         };
 
-        let is_ok = d2::adaptive_quad(&|_: f64, _: f64| 0.0, &opts);
+        let is_ok = d2::adaptive_quad(&|_: f64, _: f64| 0.0, opts);
         assert!(is_ok.is_err());
         match is_ok {
             Ok(_) => panic!("Expected error"),
@@ -315,26 +325,27 @@ mod d2_tests {
 
         let opts = d2::AdaptiveQuadOpts {
             bounds: (-0.3, 5.0, -3.0, 2.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD2 {
+            fixed_rule_low: FixedQuadOptsD2 {
                 gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                 order: (10, 10),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD2 {
+            },
+            fixed_rule_high: FixedQuadOptsD2 {
                 gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                 order: (30, 30),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: 1e-5,
             max_depth: (10, 10),
             init_subdiv: None,
         };
 
-        let res = d2::adaptive_quad(&f, &opts).unwrap();
+        let tol = opts.tol;
+        let res = d2::adaptive_quad(&f, opts).unwrap();
         let true_integral = 7372.07722038889f64;
-        let err_ub = (res.num_subdiv as f64) * opts.tol;
+        let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 1);
@@ -347,27 +358,28 @@ mod d2_tests {
 
         let opts = d2::AdaptiveQuadOpts {
             bounds: (0.0, 30.0, 0.0, 30.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD2 {
+            fixed_rule_low: FixedQuadOptsD2 {
                 gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                 order: (10, 10),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD2 {
+            },
+            fixed_rule_high: FixedQuadOptsD2 {
                 gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                 order: (30, 30),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: 1e-5,
             max_depth: (10, 10),
             init_subdiv: None,
         };
 
-        let res = d2::adaptive_quad(&f, &opts).unwrap();
+        let tol = opts.tol;
+        let res = d2::adaptive_quad(&f, opts).unwrap();
         let true_integral = -2.0 * 30.0f64.cos() + 30.0f64.cos().powi(2) + 1.0;
 
-        let err_ub = (res.num_subdiv as f64) * opts.tol;
+        let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 64);
@@ -378,20 +390,20 @@ mod d2_tests {
     fn test_adaptive_quad_3() {
         let f = |x: f64, y: f64| (x + 1.0).abs() * (y - 2.0).abs();
 
-        let mut opts = d2::AdaptiveQuadOpts {
+        let opts = d2::AdaptiveQuadOpts {
             bounds: (-3.0, 4.0, 0.0, 5.0),
-            fixed_rule_low: fixed_rule(FixedQuadOptsD2 {
+            fixed_rule_low: FixedQuadOptsD2 {
                 gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                 order: (10, 10),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
-            }),
-            fixed_rule_high: fixed_rule(FixedQuadOptsD2 {
+            },
+            fixed_rule_high: FixedQuadOptsD2 {
                 gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
                 order: (30, 30),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
-            }),
+            },
             tol: 1e-5,
             max_depth: (10, 10),
             init_subdiv: None,
@@ -401,8 +413,9 @@ mod d2_tests {
 
         // no init_subdiv
         {
-            let res = d2::adaptive_quad(&f, &opts).unwrap();
-            let err_ub = (res.num_subdiv as f64) * opts.tol;
+            let tol = opts.tol;
+            let res = d2::adaptive_quad(&f, opts).unwrap();
+            let err_ub = (res.num_subdiv as f64) * tol;
             assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 403);
@@ -410,9 +423,26 @@ mod d2_tests {
         }
         // with init_subdiv
         {
-            opts.init_subdiv = Some((vec![-1.0], vec![2.0]));
-            let res = d2::adaptive_quad(&f, &opts).unwrap();
-            let err_ub = (res.num_subdiv as f64) * opts.tol;
+            let opts = d2::AdaptiveQuadOpts {
+                bounds: (-3.0, 4.0, 0.0, 5.0),
+                fixed_rule_low: FixedQuadOptsD2 {
+                    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                    order: (10, 10),
+                    bounds: (-1.0, 1.0, -1.0, 1.0),
+                    subdiv: None,
+                },
+                fixed_rule_high: FixedQuadOptsD2 {
+                    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                    order: (30, 30),
+                    bounds: (-1.0, 1.0, -1.0, 1.0),
+                    subdiv: None,
+                },
+                tol: 1e-5,
+                max_depth: (10, 10),
+                init_subdiv: Some((vec![-1.0], vec![2.0])),
+            };
+            let res = d2::adaptive_quad(&f, opts).unwrap();
+            let err_ub = (res.num_subdiv as f64) * 1e-5;
             assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 4);
