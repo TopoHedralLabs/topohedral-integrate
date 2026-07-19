@@ -14,15 +14,19 @@ use crate::gauss::MAX_ORDER;
 use super::*;
 
 //{{{ struct: FixedQuadOpts
+/// Configuration for two-dimensional fixed tensor-product quadrature.
 #[derive(Debug)]
 pub struct FixedQuadOpts {
-    /// Gauss quadrature rule to use in u and v directions
+    /// Gauss quadrature families in `(u, v)` order.
     pub gauss_type: (GaussQuadType, GaussQuadType),
-    /// Order of the Gauss quadrature rule to use in u and v directions
+    /// Minimum polynomial exactness in `(u, v)` order.
     pub order: (usize, usize),
-    /// Bounds of the integration region in order ``(umin, max, vmin, vmax)``
+    /// Rectangular integration bounds `(u_min, u_max, v_min, v_max)`.
     pub bounds: (f64, f64, f64, f64),
-    /// Optional Subdivision of the integration region in order ``(u, v)``
+    /// Optional interior subdivision coordinates in `(u, v)` order.
+    ///
+    /// Each nonempty coordinate list should be strictly increasing to form a non-overlapping
+    /// partition. The constructor validates only that coordinates lie within their bounds.
     pub subdiv: Option<(Vec<f64>, Vec<f64>)>,
 }
 //}}}
@@ -94,6 +98,7 @@ impl OptionsVerify for FixedQuadOpts {
 }
 //}}}
 //{{{ struct: FixedQuad
+/// A reusable two-dimensional fixed tensor-product quadrature rule.
 #[derive(Debug)]
 pub struct FixedQuad {
     /// The set of points and weights for the fixed quadrature rule. Point `i` and weight `i`
@@ -106,6 +111,9 @@ pub struct FixedQuad {
 //{{{ impl: FixedQuad
 impl FixedQuad {
     //{{{ fun: new
+    /// Builds a reusable tensor-product quadrature rule from `opts`.
+    ///
+    /// Returns [`OptionsError`] when the options are invalid.
     pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
         opts.is_ok(true)?;
 
@@ -151,6 +159,10 @@ impl FixedQuad {
     }
     //}}}
     //{{{ fun: integrate
+    /// Integrates `f` using this rule.
+    ///
+    /// When `bounds` is `Some((u_min, u_max, v_min, v_max))`, the stored rule is linearly
+    /// remapped to that rectangle. When it is `None`, the configured bounds are used.
     pub fn integrate<F: Fn(f64, f64) -> f64>(
         &self,
         f: &F,
@@ -186,6 +198,7 @@ impl FixedQuad {
     }
     //}}}
     //{{{ fun: nqp
+    /// Returns the total number of tensor-product quadrature points.
     pub fn nqp(&self) -> usize {
         self.points_weights.len() / 3
     }
@@ -193,6 +206,9 @@ impl FixedQuad {
 }
 //}}}
 //{{{ fun: fixed_quad
+/// Integrates `f` over `opts.bounds` using a newly constructed tensor-product rule.
+///
+/// Returns [`OptionsError`] when `opts` is invalid.
 pub fn fixed_quad<F: Fn(f64, f64) -> f64>(
     f: &F,
     opts: FixedQuadOpts,

@@ -14,13 +14,29 @@ use topohedral_tracing::*;
 //--------------------------------------------------------------------------------------------------
 
 //{{{ struct: AdaptiveQuadOpts
+/// Configuration for two-dimensional adaptive quadrature.
+///
+/// The algorithm estimates each rectangle's error from the difference between the low- and
+/// high-order rules, then splits rectangles whose estimate exceeds [`Self::tol`] in both axes.
 #[derive(Debug)]
 pub struct AdaptiveQuadOpts {
+    /// Rectangular integration bounds `(u_min, u_max, v_min, v_max)`.
     pub bounds: (f64, f64, f64, f64),
+    /// Lower-order fixed tensor-product rule used for the integral estimate.
     pub fixed_rule_low: fi::d2::FixedQuadOpts,
+    /// Higher-order fixed tensor-product rule used for the error estimate.
     pub fixed_rule_high: fi::d2::FixedQuadOpts,
+    /// Positive error tolerance applied independently to each rectangle.
     pub tol: f64,
+    /// Reserved maximum refinement depth in `(u, v)` order.
+    ///
+    /// This value must not be `(0, 0)`, but the current implementation does not use it to limit
+    /// refinement.
     pub max_depth: (usize, usize),
+    /// Optional initial interior subdivision coordinates in `(u, v)` order.
+    ///
+    /// Each nonempty list should be strictly increasing. The implementation validates only that
+    /// coordinates lie within their bounds, including the endpoints.
     pub init_subdiv: Option<(Vec<f64>, Vec<f64>)>,
 }
 //}}}
@@ -105,16 +121,22 @@ impl OptionsVerify for AdaptiveQuadOpts {
 }
 //}}}
 //{{{ struct: AdaptiveQuadResult
+/// Value and diagnostics returned by two-dimensional adaptive quadrature.
 #[derive(Debug)]
 pub struct AdaptiveQuadResult {
+    /// Approximate integral, computed by summing the low-order-rule estimates.
     pub integral: f64,
+    /// Sum of the absolute differences between low- and high-order estimates on terminal
+    /// rectangles.
     pub error_estimate: f64,
+    /// Number of terminal rectangles.
     pub num_subdiv: usize,
+    /// Number of function calls made by both rules.
     pub num_fn_eval: usize,
 }
 //}}}
 //{{{ fun: error_estimate
-/// Computes the error estimate for the integral of a function $f$
+/// Computes the low-order integral estimate and the difference between the two rules.
 fn error_estimate<F: Fn(f64, f64) -> f64>(
     f: &F,
     fixed_rule_low: &fi::d2::FixedQuad,
@@ -128,6 +150,14 @@ fn error_estimate<F: Fn(f64, f64) -> f64>(
 }
 //}}}
 //{{{ fun: adaptive_quad
+/// Adaptively integrates `f` over [`AdaptiveQuadOpts::bounds`].
+///
+/// The tolerance is checked per rectangle, so the returned aggregate error estimate may exceed
+/// `opts.tol`. `max_depth` is validated but is not currently enforced.
+///
+/// # Errors
+///
+/// Returns [`OptionsError`] if `opts` is invalid.
 pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
     f: &F,
     opts: AdaptiveQuadOpts,

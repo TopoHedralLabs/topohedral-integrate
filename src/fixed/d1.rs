@@ -12,20 +12,19 @@ use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuad
 //--------------------------------------------------------------------------------------------------
 
 //{{{ struct: FixedQuadOpts
-/// Represents options for a fixed quadrature integration method.
-///
-/// This struct holds the configuration options for performing a fixed quadrature
-/// integration, such as the Gaussian quadrature type, order, integration bounds,
-/// and optional subdivision points.
+/// Configuration for one-dimensional fixed quadrature.
 #[derive(Debug)]
 pub struct FixedQuadOpts {
-    /// The Gaussian quadrature type
+    /// Gauss quadrature family used on every subinterval.
     pub gauss_type: GaussQuadType,
-    /// The order of the Gaussian quadrature to use for each dimension.
+    /// Minimum polynomial exactness requested for the rule.
     pub order: usize,
-    /// The bounds of the integration region.
+    /// Integration interval `(lower, upper)`.
     pub bounds: (f64, f64),
-    /// Optional subdivision points to use within the integration region.
+    /// Optional interior subdivision points.
+    ///
+    /// Supply points in strictly increasing order to partition the interval into non-overlapping
+    /// subintervals. The constructor validates that every point lies strictly inside `bounds`.
     pub subdiv: Option<Vec<f64>>,
 }
 //}}}
@@ -81,6 +80,7 @@ impl OptionsVerify for FixedQuadOpts {
 }
 //}}}
 //{{{ struct: FixedQuad
+/// A reusable one-dimensional fixed quadrature rule.
 #[derive(Debug)]
 pub struct FixedQuad {
     /// The set of points and weights for the fixed quadrature rule. Point `i` and weight `i`
@@ -93,6 +93,9 @@ pub struct FixedQuad {
 //{{{ impl: FixedQuad
 impl FixedQuad {
     //{{{ fun: new
+    /// Builds a reusable fixed quadrature rule from `opts`.
+    ///
+    /// Returns [`OptionsError`] when the options are invalid.
     pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
         opts.is_ok(true)?;
         let points_weights = build_points_weights(
@@ -109,6 +112,10 @@ impl FixedQuad {
     }
     //}}}
     //{{{ fun: integrate
+    /// Integrates `f` using this rule.
+    ///
+    /// When `bounds` is `Some((lower, upper))`, the stored rule is linearly remapped from its
+    /// configured bounds to that interval. When it is `None`, the configured bounds are used.
     pub fn integrate<F: Fn(f64) -> f64>(
         &self,
         f: &F,
@@ -141,6 +148,7 @@ impl FixedQuad {
     }
     //}}}
     //{{{ fun: nqp
+    /// Returns the total number of quadrature points, including all subintervals.
     pub fn nqp(&self) -> usize {
         self.points_weights.len() / 2
     }
@@ -189,6 +197,9 @@ pub(super) fn build_points_weights(
 }
 //}}}
 //{{{ fun: fixed_quad
+/// Integrates `f` over `opts.bounds` using a newly constructed fixed rule.
+///
+/// Returns [`OptionsError`] when `opts` is invalid.
 pub fn fixed_quad<F: Fn(f64) -> f64>(
     f: &F,
     opts: FixedQuadOpts,
@@ -198,6 +209,7 @@ pub fn fixed_quad<F: Fn(f64) -> f64>(
 }
 //}}}
 //{{{ impl: From<GaussQuad> for FixedQuad
+/// Converts a Gauss rule on its reference interval into a reusable fixed rule.
 impl From<GaussQuad> for FixedQuad {
     fn from(value: GaussQuad) -> Self {
         let nqp = value.nqp;

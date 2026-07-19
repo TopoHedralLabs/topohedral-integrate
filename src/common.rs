@@ -26,10 +26,13 @@ pub(crate) trait OptionsVerify {
     ) -> Result<(), OptionsError>;
 }
 
+/// Error returned when integration options fail validation.
 #[derive(Error, Debug)]
 pub enum OptionsError {
+    /// The options are invalid; no individual reasons were collected.
     #[error("The options are invalid.")]
     InvalidOptionsShort,
+    /// The options are invalid, with one or more human-readable reasons.
     #[error("The options are invalid with reasons:{0}")]
     InvalidOptionsFull(String),
 }
