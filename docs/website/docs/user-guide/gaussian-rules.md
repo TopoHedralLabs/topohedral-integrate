@@ -9,17 +9,28 @@ sum
 
 The crate supports two rule families:
 
-- `GaussQuadType::Legendre` uses interior points and an \(n\)-point rule of
-  order \(2n-1\);
+- `GaussQuadType::Legendre` uses interior points, supports \(n \ge 1\), and an
+  \(n\)-point rule has polynomial exactness \(2n-1\);
 - `GaussQuadType::Lobatto` includes both interval endpoints and an \(n\)-point
-  rule of order \(2n-3\).
+  rule supports \(n \ge 2\) with polynomial exactness \(2n-3\).
 
 The `GaussQuadType::nqp_from_order` and `order_from_nqp` methods convert between
-polynomial order and number of quadrature points.
+requested polynomial exactness and number of quadrature points. The selected
+point count is the smallest whose exactness is at least the requested value:
+
+\[
+    n_\mathrm{Legendre} = \left\lfloor\frac{p}{2}\right\rfloor + 1,
+    \qquad
+    n_\mathrm{Lobatto} = \left\lfloor\frac{p}{2}\right\rfloor + 2.
+\]
+
+For an even requested degree \(p\), the selected rule has actual exactness
+\(p+1\).
 
 ## `GaussQuad`: one rule
 
-`GaussQuad::new(gauss_type, order)` constructs one rule. Its public fields are:
+`GaussQuad::new(gauss_type, order)` constructs the smallest rule with at least
+the requested polynomial exactness. Its public fields are:
 
 - `gauss_type`: the selected family;
 - `nqp`: the number of quadrature points;
@@ -51,11 +62,12 @@ by hand.
 
 ## `GuassQuadSet`: a family of rules
 
-`GuassQuadSet::new(gauss_type, max_order)` precomputes rules up to a requested
-order. The public type name is currently spelled `GuassQuadSet`.
+`GuassQuadSet::new(gauss_type, max_order)` precomputes every supported point
+count through the rule needed for the requested maximum exactness. The public
+type name is currently spelled `GuassQuadSet`.
 
 Use `gauss_quad_from_nqp` to select by point count or
-`gauss_quad_from_order` to select by polynomial order:
+`gauss_quad_from_order` to select by requested polynomial exactness:
 
 ```rust
 use topohedral_integrate::{GaussQuadType, GuassQuadSet};

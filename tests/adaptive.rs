@@ -87,7 +87,7 @@ mod d1_tests {
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 1);
-        assert_eq!(res.num_fn_eval, 20);
+        assert_eq!(res.num_fn_eval, 22);
     }
 
     /// Smooth but highly oscillatory function, should be integrated to tolerance with a small
@@ -120,8 +120,8 @@ mod d1_tests {
         let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
-        assert_eq!(res.num_subdiv, 8);
-        assert_eq!(res.num_fn_eval, 300);
+        assert_eq!(res.num_subdiv, 7);
+        assert_eq!(res.num_fn_eval, 286);
     }
 
     /// Peicewise linear function with a discontinuity at x = -1.0.
@@ -158,7 +158,7 @@ mod d1_tests {
             assert_abs_diff_eq!(res1.integral, true_integral, epsilon = err_ub);
             assert!(res1.error_estimate < err_ub);
             assert_eq!(res1.num_subdiv, 8);
-            assert_eq!(res1.num_fn_eval, 300);
+            assert_eq!(res1.num_fn_eval, 330);
         }
 
         let opts = d1::AdaptiveQuadOpts {
@@ -187,7 +187,7 @@ mod d1_tests {
             assert_abs_diff_eq!(res1.integral, true_integral, epsilon = err_ub);
             assert!(res2.error_estimate < err_ub);
             assert_eq!(res2.num_subdiv, 2);
-            assert_eq!(res2.num_fn_eval, 40);
+            assert_eq!(res2.num_fn_eval, 44);
         }
     }
 
@@ -222,7 +222,7 @@ mod d1_tests {
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 4);
-        assert_eq!(res.num_fn_eval, 140);
+        assert_eq!(res.num_fn_eval, 154);
     }
 
     /// Logarithmic function, which is smooth on R+ but with a singular point at x = 0.0.
@@ -255,8 +255,8 @@ mod d1_tests {
         let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
-        assert_eq!(res.num_subdiv, 16);
-        assert_eq!(res.num_fn_eval, 620);
+        assert_eq!(res.num_subdiv, 15);
+        assert_eq!(res.num_fn_eval, 638);
     }
 }
 
@@ -349,7 +349,7 @@ mod d2_tests {
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
         assert_eq!(res.num_subdiv, 1);
-        assert_eq!(res.num_fn_eval, 250);
+        assert_eq!(res.num_fn_eval, 292);
     }
 
     #[test]
@@ -382,8 +382,8 @@ mod d2_tests {
         let err_ub = (res.num_subdiv as f64) * tol;
         assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
         assert!(res.error_estimate < err_ub);
-        assert_eq!(res.num_subdiv, 64);
-        assert_eq!(res.num_fn_eval, 21250);
+        assert_eq!(res.num_subdiv, 43);
+        assert_eq!(res.num_fn_eval, 16644);
     }
 
     #[test]
@@ -418,8 +418,8 @@ mod d2_tests {
             let err_ub = (res.num_subdiv as f64) * tol;
             assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
-            assert_eq!(res.num_subdiv, 403);
-            assert_eq!(res.num_fn_eval, 134250);
+            assert_eq!(res.num_subdiv, 238);
+            assert_eq!(res.num_fn_eval, 92564);
         }
         // with init_subdiv
         {
@@ -446,7 +446,7 @@ mod d2_tests {
             assert_abs_diff_eq!(res.integral, true_integral, epsilon = err_ub);
             assert!(res.error_estimate < err_ub);
             assert_eq!(res.num_subdiv, 4);
-            assert_eq!(res.num_fn_eval, 1000);
+            assert_eq!(res.num_fn_eval, 1168);
         }
     }
 }

@@ -16,7 +16,7 @@ use topohedral_linalg::{DMatrix, SubViewable};
 //--------------------------------------------------------------------------------------------------
 //{{{ collection: quadrature
 //{{{ static: MAX_ORDER
-/// Largest polynomial order included in each cached rule set.
+/// Largest requested polynomial exactness degree included in each cached rule set.
 pub static MAX_ORDER: usize = 100;
 //}}}
 //{{{ static: LEGENDRE_POINTS
@@ -26,13 +26,13 @@ static LEGENDRE_POINTS: OnceLock<GuassQuadSet> = OnceLock::new();
 static LOBATTO_POINTS: OnceLock<GuassQuadSet> = OnceLock::new();
 //}}}
 //{{{ fun: get_legendre_points
-/// Returns the lazily initialized Gauss-Legendre rules through the configured maximum order.
+/// Returns the lazily initialized Gauss-Legendre rules through the configured maximum exactness.
 pub fn get_legendre_points() -> &'static GuassQuadSet {
     LEGENDRE_POINTS.get_or_init(|| GuassQuadSet::new(GaussQuadType::Legendre, MAX_ORDER))
 }
 //}}}
 //{{{ fun: get_lobatto_points
-/// Returns the lazily initialized Gauss-Lobatto rules through the configured maximum order.
+/// Returns the lazily initialized Gauss-Lobatto rules through the configured maximum exactness.
 pub fn get_lobatto_points() -> &'static GuassQuadSet {
     LOBATTO_POINTS.get_or_init(|| GuassQuadSet::new(GaussQuadType::Lobatto, MAX_ORDER))
 }
@@ -51,11 +51,15 @@ pub enum GaussQuadType {
 }
 
 impl GaussQuadType {
-    /// Returns the reference-interval integral of the weight used by this family's recurrence.
+    /// Returns the reference-interval integral of the weight used by this family's node-generating
+    /// recurrence.
+    ///
+    /// For Lobatto rules, this is the integral of the Jacobi `(1, 1)` weight used to generate the
+    /// interior nodes, not the sum of the final Lobatto weights.
     pub fn weight_integral(&self) -> f64 {
         match self {
             Self::Legendre => 2.0,
-            Self::Lobatto => 1.33333333333333,
+            Self::Lobatto => 4.0 / 3.0,
         }
     }
 
@@ -67,40 +71,65 @@ impl GaussQuadType {
         }
     }
 
-    /// Returns the number of points needed for a rule with at least `order` exactness.
+    /// Returns the number of points needed for a rule with at least `order` polynomial exactness.
+    ///
+    /// An `n`-point Legendre rule has exactness `2 * n - 1`, while an `n`-point Lobatto rule has
+    /// exactness `2 * n - 3`. Consequently, an even requested order selects a rule whose actual
+    /// exactness is one degree higher.
     pub fn nqp_from_order(
         &self,
         order: usize,
     ) -> usize {
         match self {
-            Self::Legendre => order.div_ceil(2),
-            Self::Lobatto => (order + 3) / 2,
+            Self::Legendre => order / 2 + 1,
+            Self::Lobatto => order / 2 + 2,
         }
     }
 
     /// Returns the polynomial exactness of an `nqp`-point rule.
     ///
-    /// `nqp` must be at least two.
+    /// # Panics
+    ///
+    /// Panics if `nqp` is less than one for Legendre or less than two for Lobatto, or if the
+    /// resulting exactness cannot be represented by `usize`.
     pub fn order_from_nqp(
         &self,
         nqp: usize,
     ) -> usize {
         match self {
-            Self::Legendre => 2 * nqp - 1,
-            Self::Lobatto => 2 * nqp - 3,
+            Self::Legendre => {
+                assert!(nqp >= 1, "Legendre rules require at least one point");
+                nqp.checked_mul(2)
+                    .and_then(|value| value.checked_sub(1))
+                    .expect("Legendre exactness must fit in usize")
+            }
+            Self::Lobatto => {
+                assert!(nqp >= 2, "Lobatto rules require at least two points");
+                nqp.checked_mul(2)
+                    .and_then(|value| value.checked_sub(3))
+                    .expect("Lobatto exactness must fit in usize")
+            }
+        }
+    }
+
+    /// Returns the minimum supported point count for this quadrature family.
+    fn min_nqp(&self) -> usize {
+        match self {
+            Self::Legendre => 1,
+            Self::Lobatto => 2,
         }
     }
 }
 //}}}
 //{{{ collection: GuassQuadSet
 //{{{ struct: GuassQuadSet
-/// A collection of Gauss quadrature rules from two points through a maximum order.
+/// A collection of Gauss quadrature rules through a maximum requested exactness degree.
 ///
 /// The misspelling in this type's name is part of the established public API.
 pub struct GuassQuadSet {
     /// Orthogonal-polynomial family used by every rule in the set.
     pub gauss_type: GaussQuadType,
-    /// Largest requested polynomial order represented by the set.
+    /// Largest requested polynomial exactness represented by the set.
     pub max_order: usize,
     /// Smallest number of points in a stored rule.
     pub min_nqp: usize,
@@ -114,69 +143,23 @@ pub struct GuassQuadSet {
 //}}}
 //{{{ impl: GuassQuadSet
 impl GuassQuadSet {
-    /// Builds all rules for `gauss_type` through the requested polynomial `order`.
-    ///
-    /// `order` must require at least two quadrature points.
+    /// Builds all rules for `gauss_type` through the requested polynomial exactness `order`.
     pub fn new(
         gauss_type: GaussQuadType,
         order: usize,
     ) -> Self {
-        // set the min and max nqp's available for the given quadrature rule
-        let min_nqp = 2;
-        let max_nqp = match gauss_type {
-            GaussQuadType::Legendre => order.div_ceil(2),
-            GaussQuadType::Lobatto => (order + 3) / 2,
-        };
-        // preallocate the points and weights
-        let mut points = vec![vec![0.0; max_nqp]; max_nqp - min_nqp + 1];
-        let mut weights = vec![vec![0.0; max_nqp]; max_nqp - min_nqp + 1];
+        let min_nqp = gauss_type.min_nqp();
+        let max_nqp = gauss_type.nqp_from_order(order);
+        let num_rules = max_nqp - min_nqp + 1;
+        let mut points = Vec::with_capacity(num_rules);
+        let mut weights = Vec::with_capacity(num_rules);
 
-        match gauss_type {
-            GaussQuadType::Lobatto => {
-                points[0] = vec![-1.0f64, 1.0f64];
-                weights[0] = vec![1.0f64, 1.0f64];
-
-                points[1] = vec![-1.0f64, 0.0f64, 1.0f64];
-                const W1: f64 = 1.0f64 / 3.0f64;
-                const W2: f64 = 4.0f64 / 3.0f64;
-                weights[1] = vec![W1, W2, W1];
-
-                for i in (min_nqp + 2)..max_nqp {
-                    let nqp = i - min_nqp;
-                    let (points_i, _weights_i) =
-                        golub_welsch(nqp, gauss_type, lobatto_recursion_coeffs);
-                    points[i - min_nqp][0] = -1.0f64;
-                    points[i - min_nqp][1..nqp + 1].copy_from_slice(&points_i);
-                    points[i - min_nqp][nqp + 1] = 1.0f64;
-
-                    let ii = i as f64;
-                    let wi = 2.0f64 / (ii * (ii - 1.0f64));
-                    weights[i - min_nqp][0] = wi;
-                    weights[i - min_nqp][1..nqp + 1]
-                        .iter_mut()
-                        .enumerate()
-                        .for_each(|(j, wj)| {
-                            let xj = points_i[j];
-                            let leg_j = legendre(i - 1, xj);
-                            *wj = wi / leg_j.powi(2);
-                        });
-                    weights[i - min_nqp][nqp + 1] = wi;
-                }
-            }
-            GaussQuadType::Legendre => {
-                for i in min_nqp..max_nqp {
-                    let (points_i, weights_i) =
-                        golub_welsch(i, gauss_type, legendre_recursion_coeffs);
-                    points[i - min_nqp] = points_i;
-                    weights[i - min_nqp] = weights_i;
-                }
-            }
+        for nqp in min_nqp..=max_nqp {
+            let rule = build_gauss_quad(gauss_type, nqp);
+            points.push(rule.points);
+            weights.push(rule.weights);
         }
 
-        for i in min_nqp..max_nqp + 1 {
-            points[i - min_nqp].resize(i, 0.0);
-            weights[i - min_nqp].resize(i, 0.0);
-        }
         Self {
             gauss_type,
             max_order: order,
@@ -196,7 +179,10 @@ impl GuassQuadSet {
         &self,
         nqp: usize,
     ) -> GaussQuad {
-        debug_assert!(nqp >= self.min_nqp && nqp <= self.max_nqp);
+        assert!(
+            nqp >= self.min_nqp && nqp <= self.max_nqp,
+            "point count must be within the stored rule range"
+        );
         let points_nqp = self.points[nqp - self.min_nqp].clone();
         let weights_nqp = self.weights[nqp - self.min_nqp].clone();
         GaussQuad::from_points_weights(self.gauss_type, points_nqp, weights_nqp)
@@ -211,11 +197,11 @@ impl GuassQuadSet {
         &self,
         order: usize,
     ) -> GaussQuad {
-        debug_assert!(order <= self.max_order);
-        let nqp = match self.gauss_type {
-            GaussQuadType::Legendre => order.div_ceil(2),
-            GaussQuadType::Lobatto => (order + 3) / 2,
-        };
+        assert!(
+            order <= self.max_order,
+            "requested exactness must not exceed the stored maximum"
+        );
+        let nqp = self.gauss_type.nqp_from_order(order);
         self.gauss_quad_from_nqp(nqp)
     }
 }
@@ -253,33 +239,66 @@ impl GaussQuad {
         }
     }
 
-    /// Constructs a quadrature rule using the number of points derived from `order`.
+    /// Constructs the smallest quadrature rule with at least `order` polynomial exactness.
     ///
-    /// The requested order must require at least two points.
+    /// Legendre rules support one point and Lobatto rules support two points at minimum. An even
+    /// requested order selects a rule whose actual exactness is one degree higher.
     pub fn new(
         gauss_type: GaussQuadType,
         order: usize,
     ) -> Self {
-        let nqp = match gauss_type {
-            GaussQuadType::Legendre => order.div_ceil(2),
-            GaussQuadType::Lobatto => (order + 3) / 2,
-        };
-
-        let (points, weights) = match gauss_type {
-            GaussQuadType::Legendre => {
-                let (points, weights) = golub_welsch(nqp, gauss_type, legendre_recursion_coeffs);
-                (points, weights)
-            }
-            GaussQuadType::Lobatto => {
-                let (points, weights) = golub_welsch(nqp, gauss_type, lobatto_recursion_coeffs);
-                (points, weights)
-            }
-        };
-
-        Self::from_points_weights(gauss_type, points, weights)
+        let nqp = gauss_type.nqp_from_order(order);
+        build_gauss_quad(gauss_type, nqp)
     }
 }
 //}}}
+//}}}
+//{{{ fun: build_gauss_quad
+/// Builds a quadrature rule with exactly `nqp` points.
+fn build_gauss_quad(
+    gauss_type: GaussQuadType,
+    nqp: usize,
+) -> GaussQuad {
+    assert!(
+        nqp >= gauss_type.min_nqp(),
+        "point count is below the minimum for the quadrature family"
+    );
+
+    let (points, weights) = match gauss_type {
+        GaussQuadType::Legendre => {
+            golub_welsch(nqp, gauss_type.weight_integral(), legendre_recursion_coeffs)
+        }
+        GaussQuadType::Lobatto => {
+            let endpoint_weight = 2.0 / ((nqp as f64) * ((nqp - 1) as f64));
+            let mut points = Vec::with_capacity(nqp);
+            let mut weights = Vec::with_capacity(nqp);
+
+            points.push(-1.0);
+            weights.push(endpoint_weight);
+
+            if nqp > 2 {
+                let interior_count = nqp - 2;
+                let (interior_points, _) = golub_welsch(
+                    interior_count,
+                    gauss_type.weight_integral(),
+                    lobatto_recursion_coeffs,
+                );
+
+                for point in interior_points {
+                    let polynomial = legendre(nqp - 1, point);
+                    points.push(point);
+                    weights.push(endpoint_weight / polynomial.powi(2));
+                }
+            }
+
+            points.push(1.0);
+            weights.push(endpoint_weight);
+            (points, weights)
+        }
+    };
+
+    GaussQuad::from_points_weights(gauss_type, points, weights)
+}
 //}}}
 //{{{ fun: golub_welsch
 /// Computes the Golub-Welsch algorithm to generate Gauss quadrature points and weights for
@@ -367,68 +386,42 @@ impl GaussQuad {
 #[allow(clippy::doc_overindented_list_items)]
 fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     nqp: usize,
-    gauss_type: GaussQuadType,
+    weight_integral: f64,
     recurrence_fcn: F,
 ) -> (Vec<f64>, Vec<f64>) {
-    //{{{ init
+    assert!(nqp > 0, "Golub-Welsch requires at least one point");
+
     let mut tmat = DMatrix::<f64>::zeros(nqp, nqp);
 
-    let (mut ai, mut _bi, mut _ci): (f64, f64, f64);
-    let (mut aj, mut _bj, mut cj): (f64, f64, f64);
-    let (mut alpha_i, alpha_j): (f64, f64);
-    let (mut beta_i, mut beta_h): (f64, f64);
-    //}}}
-    //{{{ com: deal with row 0
-    {
-        (ai, _bi, _ci) = recurrence_fcn(0);
-        (aj, _bj, cj) = recurrence_fcn(1);
-        alpha_i = -(_bi / ai);
-        beta_i = (cj / (ai * aj)).sqrt();
-        tmat[(0, 0)] = alpha_i;
-        tmat[(0, 1)] = beta_i;
-        beta_h = beta_i;
-    }
-    //}}}
-    //{{{ com: deal with rows 1 to nqp-2
-    for i in 1..nqp - 1 {
-        (ai, _bi, _ci) = recurrence_fcn(i);
-        (aj, _bj, cj) = recurrence_fcn(i + 1);
-        alpha_i = -(_bi / ai);
-        beta_i = (cj / (ai * aj)).sqrt();
+    for i in 0..nqp {
+        let (ai, bi, _) = recurrence_fcn(i);
+        tmat[(i, i)] = -(bi / ai);
 
-        tmat[(i, i - 1)] = beta_h;
-        tmat[(i, i)] = alpha_i;
-        tmat[(i, i + 1)] = beta_i;
-        beta_h = beta_i;
+        if i + 1 < nqp {
+            let (aj, _, cj) = recurrence_fcn(i + 1);
+            let beta = (cj / (ai * aj)).sqrt();
+            tmat[(i, i + 1)] = beta;
+            tmat[(i + 1, i)] = beta;
+        }
     }
-    //}}}
-    //{{{ com: deal with row nqp-1
-    {
-        (_, _bi, _ci) = recurrence_fcn(nqp - 1);
-        (aj, _bj, _) = recurrence_fcn(nqp);
-        alpha_j = -(_bj / aj);
-        tmat[(nqp - 1, nqp - 2)] = beta_h;
-        tmat[(nqp - 1, nqp - 1)] = alpha_j;
-    }
-    //}}}
+
     //{{{ com: eigendecompose
     let eigen_decomp = tmat.symeig().unwrap();
     //}}}
     //{{{ com: compute quadrature points and weights from eigenvalues and eigenvectors
     let qpoints: &Vec<f64> = &eigen_decomp.eigvals;
-    let mu0 = gauss_type.weight_integral();
     let qweights: Vec<f64> = eigen_decomp
         .eigvecs
         .row(0)
         .iter()
-        .map(|x| x.powi(2) * mu0)
+        .map(|x| x.powi(2) * weight_integral)
         .collect();
     let mut combined: Vec<(f64, f64)> = qpoints
         .iter()
         .cloned()
         .zip(qweights.iter().cloned())
         .collect();
-    combined.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    combined.sort_by(|a, b| a.0.total_cmp(&b.0));
     let (qpoints_final, qweights_final): (Vec<f64>, Vec<f64>) = combined.iter().cloned().unzip();
     //}}}
     //{{{ ret

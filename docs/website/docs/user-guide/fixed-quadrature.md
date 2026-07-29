@@ -10,7 +10,7 @@ several functions over the same domain.
 Configure `FixedQuad1D` with `FixedQuadOpts1D`:
 
 - `gauss_type`: `GaussQuadType::Legendre` or `GaussQuadType::Lobatto`;
-- `order`: polynomial order of the Gaussian rule;
+- `order`: requested polynomial exactness of the Gaussian rule;
 - `bounds`: `(lower, upper)`;
 - `subdiv`: optional strictly interior subdivision points.
 

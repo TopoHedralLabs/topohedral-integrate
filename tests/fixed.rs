@@ -86,6 +86,22 @@ mod d1_tests {
         assert_eq!(rule.opts.bounds, (-1.0, 1.0));
         assert_eq!(rule.opts.subdiv, Some(vec![0.0]));
     }
+
+    #[test]
+    fn one_point_legendre_rule_integrates_linear_function() {
+        let integral = fixed_quad(
+            &|x: f64| x,
+            FixedQuadOpts {
+                gauss_type: GaussQuadType::Legendre,
+                order: 0,
+                bounds: (2.0, 5.0),
+                subdiv: None,
+            },
+        )
+        .unwrap();
+
+        assert_relative_eq!(integral, 10.5, epsilon = MAX_REL);
+    }
     //}}}
     //{{{ collection: legendre tests
     macro_rules! poly_integral_legendre_test {
@@ -357,6 +373,22 @@ mod d2_tests {
         assert_eq!(rule.opts.order, (3, 3));
         assert_eq!(rule.opts.bounds, (-1.0, 1.0, -2.0, 2.0));
         assert_eq!(rule.opts.subdiv, Some((vec![0.0], vec![1.0])));
+    }
+
+    #[test]
+    fn one_point_legendre_rule_integrates_bilinear_function() {
+        let integral = d2::fixed_quad(
+            &|x: f64, y: f64| x + y,
+            d2::FixedQuadOpts {
+                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                order: (0, 0),
+                bounds: (1.0, 3.0, -2.0, 2.0),
+                subdiv: None,
+            },
+        )
+        .unwrap();
+
+        assert_relative_eq!(integral, 16.0, epsilon = MAX_REL);
     }
     //}}}
     //{{{ collection: legendre tests

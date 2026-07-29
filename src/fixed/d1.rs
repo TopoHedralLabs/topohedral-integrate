@@ -41,7 +41,7 @@ impl OptionsVerify for FixedQuadOpts {
             OptionsError::InvalidOptionsShort
         };
 
-        if self.order > MAX_ORDER || self.gauss_type.nqp_from_order(self.order) < 2 {
+        if self.order > MAX_ORDER {
             ok = false;
             append_reason(&mut err, "Quadrature order is not supported");
         }

@@ -43,10 +43,8 @@ impl OptionsVerify for FixedQuadOpts {
             OptionsError::InvalidOptionsShort
         };
 
-        let valid_u_order =
-            self.order.0 <= MAX_ORDER && self.gauss_type.0.nqp_from_order(self.order.0) >= 2;
-        let valid_v_order =
-            self.order.1 <= MAX_ORDER && self.gauss_type.1.nqp_from_order(self.order.1) >= 2;
+        let valid_u_order = self.order.0 <= MAX_ORDER;
+        let valid_v_order = self.order.1 <= MAX_ORDER;
         if !valid_u_order || !valid_v_order {
             ok = false;
             append_reason(&mut err, "Quadrature order is not supported");
