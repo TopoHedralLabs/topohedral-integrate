@@ -3,6 +3,7 @@
 
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
+use crate::config::{validate_subdivisions, Interval};
 use crate::gauss::{legendre_rules, lobatto_rules, GaussFamily, GaussRule, RuleError, MAX_DEGREE};
 //}}}
 //{{{ std imports
@@ -23,8 +24,9 @@ pub struct FixedQuadOpts {
     pub bounds: (f64, f64),
     /// Optional interior subdivision points.
     ///
-    /// Supply points in strictly increasing order to partition the interval into non-overlapping
-    /// subintervals. The constructor validates that every point lies strictly inside `bounds`.
+    /// Supply finite points in strictly increasing order to partition the interval into
+    /// non-overlapping subintervals. Every point must lie strictly inside `bounds`. An empty vector
+    /// is equivalent to `None`.
     pub subdiv: Option<Vec<f64>>,
 }
 //}}}
@@ -46,28 +48,22 @@ impl OptionsVerify for FixedQuadOpts {
             append_reason(&mut err, "Quadrature order is not supported");
         }
 
-        if self.bounds.0 > self.bounds.1 {
-            ok = false;
+        let interval = Interval::new(self.bounds.0, self.bounds.1);
+        if interval.is_err() {
             append_reason(
                 &mut err,
-                "Bounds invalid, low bound greater than high bound",
+                "Bounds invalid, bounds must be finite and strictly increasing",
             );
+            ok = false;
         }
 
-        if let Some(ref v) = self.subdiv {
-            if v.is_empty() {
-                append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
-                ok = false
-            }
-            for vi in v {
-                if *vi <= self.bounds.0 || *vi >= self.bounds.1 {
-                    append_reason(
-                        &mut err,
-                        "Initial subdivisions invalid, must be inside bounds",
-                    );
-                    ok = false;
-                    break;
-                }
+        if let (Ok(interval), Some(subdivisions)) = (interval, &self.subdiv) {
+            if validate_subdivisions(interval, subdivisions.iter().copied()).is_err() {
+                append_reason(
+                    &mut err,
+                    "Initial subdivisions invalid, must be finite, strictly increasing, and inside bounds",
+                );
+                ok = false;
             }
         }
 
@@ -103,7 +99,9 @@ impl FixedQuad {
             opts.gauss_type,
             opts.order,
             opts.bounds,
-            opts.subdiv.as_deref(),
+            opts.subdiv
+                .as_deref()
+                .filter(|subdivisions| !subdivisions.is_empty()),
         )?;
 
         Ok(Self {
@@ -164,17 +162,18 @@ pub(super) fn build_points_weights(
     subdiv: Option<&[f64]>,
 ) -> Result<Vec<f64>, RuleError> {
     let gauss_rule = match gauss_type {
-        GaussFamily::Legendre => legendre_rules()?.get_for_degree(order)?,
-        GaussFamily::Lobatto => lobatto_rules()?.get_for_degree(order)?,
+        GaussFamily::Legendre => legendre_rules()?.get_for_degree_value(order)?,
+        GaussFamily::Lobatto => lobatto_rules()?.get_for_degree_value(order)?,
     };
 
     let num_divs = subdiv.map_or(1, |subdiv| subdiv.len() + 1);
-    let mut points_weights = Vec::with_capacity(2 * gauss_rule.point_count() * num_divs);
+    let point_count = gauss_rule.point_count().value();
+    let mut points_weights = Vec::with_capacity(2 * point_count * num_divs);
     let (a, b) = gauss_rule.family().range();
 
     let mut append_interval = |c: f64, d: f64| {
         let jac = (d - c) / (b - a);
-        for i in 0..gauss_rule.point_count() {
+        for i in 0..point_count {
             let zi = gauss_rule.points()[i];
             let xi = c + jac * (zi - a);
             let wi = jac * gauss_rule.weights()[i];
@@ -215,9 +214,9 @@ pub fn fixed_quad<F: Fn(f64) -> f64>(
 impl From<GaussRule> for FixedQuad {
     fn from(value: GaussRule) -> Self {
         let point_count = value.point_count();
-        let mut points_weights = Vec::with_capacity(point_count * 2);
+        let mut points_weights = Vec::with_capacity(point_count.value() * 2);
 
-        for i in 0..point_count {
+        for i in 0..point_count.value() {
             let xi = value.points()[i];
             let wi = value.weights()[i];
             points_weights.push(xi);
@@ -228,7 +227,7 @@ impl From<GaussRule> for FixedQuad {
             points_weights,
             opts: FixedQuadOpts {
                 gauss_type: value.family(),
-                order: value.exactness(),
+                order: value.exactness().value(),
                 bounds: value.family().range(),
                 subdiv: None,
             },

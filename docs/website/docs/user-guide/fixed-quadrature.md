@@ -84,9 +84,11 @@ let integral = rule.integrate(&|x: f64, y: f64| x.powi(2) * y.powi(2), None);
 assert!((integral - 4.0 / 9.0).abs() < 1e-12);
 ```
 
-For a subdivided rectangle, either subdivision vector may be empty, but they
-cannot both be empty. For example, `Some((vec![0.0], vec![]))` splits only the
-\(u\) direction.
+For a subdivided rectangle, either subdivision vector may be empty.
+`Some((vec![], vec![]))` is equivalent to no subdivision, while
+`Some((vec![0.0], vec![]))` splits only the \(u\) direction. Nonempty vectors
+must contain finite, unique, strictly increasing coordinates strictly inside
+their axis bounds.
 
 ## One-shot helpers
 

@@ -3,6 +3,7 @@
 
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
+use crate::config::{validate_subdivisions, Rectangle, Tolerance};
 use crate::fixed as fi;
 //}}}
 //{{{ std imports
@@ -29,13 +30,13 @@ pub struct AdaptiveQuadOpts {
     pub tol: f64,
     /// Reserved maximum refinement depth in `(u, v)` order.
     ///
-    /// This value must not be `(0, 0)`, but the current implementation does not use it to limit
-    /// refinement.
+    /// Zero is valid on either axis. The current implementation does not yet use these values to
+    /// limit refinement.
     pub max_depth: (usize, usize),
     /// Optional initial interior subdivision coordinates in `(u, v)` order.
     ///
-    /// Each nonempty list should be strictly increasing. The implementation validates only that
-    /// coordinates lie within their bounds, including the endpoints.
+    /// Each list must contain finite, strictly increasing coordinates strictly inside the
+    /// corresponding bounds. Empty vectors mean no subdivision on that axis.
     pub init_subdiv: Option<(Vec<f64>, Vec<f64>)>,
 }
 //}}}
@@ -53,12 +54,14 @@ impl OptionsVerify for AdaptiveQuadOpts {
             OptionsError::InvalidOptionsShort
         };
 
-        if self.bounds.0 > self.bounds.1 || self.bounds.2 > self.bounds.3 {
-            ok = false;
+        let rectangle =
+            Rectangle::from_bounds(self.bounds.0, self.bounds.1, self.bounds.2, self.bounds.3);
+        if rectangle.is_err() {
             append_reason(
                 &mut err,
-                "Bounds invalid, low bound greater than high bound",
+                "Bounds invalid, bounds must be finite and strictly increasing",
             );
+            ok = false;
         }
 
         if self.fixed_rule_low.order >= self.fixed_rule_high.order {
@@ -69,45 +72,20 @@ impl OptionsVerify for AdaptiveQuadOpts {
             );
         }
 
-        if self.tol < 0.0 {
+        if Tolerance::absolute(self.tol).is_err() {
             ok = false;
             append_reason(&mut err, "Tolerance invalid, must be positive");
         }
 
-        if self.max_depth == (0, 0) {
-            ok = false;
-            append_reason(
-                &mut err,
-                "Maximum number of subdivisions invalid, must be positive",
-            );
-        }
-
-        if let Some(subdiv) = &self.init_subdiv {
-            if subdiv.0.is_empty() && subdiv.1.is_empty() {
-                ok = false;
+        if let (Ok(rectangle), Some(subdivisions)) = (rectangle, &self.init_subdiv) {
+            if validate_subdivisions(rectangle.u(), subdivisions.0.iter().copied()).is_err()
+                || validate_subdivisions(rectangle.v(), subdivisions.1.iter().copied()).is_err()
+            {
                 append_reason(
                     &mut err,
-                    "Initial subdivision invalid, at least 1 must be non-empty",
+                    "Initial subdivisions invalid, must be finite, strictly increasing, and inside bounds",
                 );
-            }
-
-            for u in &subdiv.0 {
-                if *u < self.bounds.0 || *u > self.bounds.1 {
-                    ok = false;
-                    append_reason(
-                        &mut err,
-                        "Initial subdivision invalid, must be within bounds",
-                    );
-                }
-            }
-            for v in &subdiv.1 {
-                if *v < self.bounds.2 || *v > self.bounds.3 {
-                    ok = false;
-                    append_reason(
-                        &mut err,
-                        "Initial subdivision invalid, must be within bounds",
-                    );
-                }
+                ok = false;
             }
         }
 
@@ -152,7 +130,7 @@ fn error_estimate<F: Fn(f64, f64) -> f64>(
 /// Adaptively integrates `f` over [`AdaptiveQuadOpts::bounds`].
 ///
 /// The tolerance is checked per rectangle, so the returned aggregate error estimate may exceed
-/// `opts.tol`. `max_depth` is validated but is not currently enforced.
+/// `opts.tol`. `max_depth` is retained but is not currently enforced.
 ///
 /// # Errors
 ///

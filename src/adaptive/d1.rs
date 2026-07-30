@@ -5,6 +5,7 @@
 
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
+use crate::config::{validate_subdivisions, Interval, Tolerance};
 use crate::fixed as fi;
 //}}}
 //{{{ std imports
@@ -31,13 +32,12 @@ pub struct AdaptiveQuadOpts {
     pub tol: f64,
     /// Reserved maximum refinement depth.
     ///
-    /// This value must be positive, but the current implementation does not use it to limit
-    /// refinement.
+    /// Zero is valid. The current implementation does not yet use this value to limit refinement.
     pub max_depth: usize,
     /// Optional initial interior subdivision points.
     ///
-    /// Provide points in strictly increasing order and do not include either bound. The
-    /// implementation validates that every point is strictly inside [`Self::bounds`].
+    /// Provide finite points in strictly increasing order and do not include either bound. An
+    /// empty vector is equivalent to `None`.
     pub init_subdiv: Option<Vec<f64>>,
 }
 //}}}
@@ -55,10 +55,11 @@ impl OptionsVerify for AdaptiveQuadOpts {
             OptionsError::InvalidOptionsShort
         };
 
-        if self.bounds.0 >= self.bounds.1 {
+        let interval = Interval::new(self.bounds.0, self.bounds.1);
+        if interval.is_err() {
             append_reason(
                 &mut err,
-                "Bounds invalid, low bound greater than high bound",
+                "Bounds invalid, bounds must be finite and strictly increasing",
             );
             ok = false;
         }
@@ -71,33 +72,18 @@ impl OptionsVerify for AdaptiveQuadOpts {
             ok = false;
         }
 
-        if self.tol <= 0.0 {
+        if Tolerance::absolute(self.tol).is_err() {
             append_reason(&mut err, "Tolerance invalid, must be positive");
             ok = false;
         }
 
-        if self.max_depth == 0 {
-            append_reason(
-                &mut err,
-                "Maximum number of subdivisions invalid, must be positive",
-            );
-            ok = false;
-        }
-
-        if let Some(ref v) = self.init_subdiv {
-            if v.is_empty() {
-                append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
-                ok = false
-            }
-            for vi in v {
-                if *vi <= self.bounds.0 || *vi >= self.bounds.1 {
-                    append_reason(
-                        &mut err,
-                        "Initial subdivisions invalid, must be inside bounds",
-                    );
-                    ok = false;
-                    break;
-                }
+        if let (Ok(interval), Some(subdivisions)) = (interval, &self.init_subdiv) {
+            if validate_subdivisions(interval, subdivisions.iter().copied()).is_err() {
+                append_reason(
+                    &mut err,
+                    "Initial subdivisions invalid, must be finite, strictly increasing, and inside bounds",
+                );
+                ok = false;
             }
         }
         if ok {
@@ -147,7 +133,7 @@ fn error_estimate<F: Fn(f64) -> f64>(
 /// \\]
 ///
 /// The tolerance is checked per subinterval, so the returned aggregate error estimate may exceed
-/// `opts.tol`. `max_depth` is validated but is not currently enforced.
+/// `opts.tol`. `max_depth` is retained but is not currently enforced.
 ///
 /// # Errors
 ///
@@ -214,7 +200,7 @@ pub fn adaptive_quad<F: Fn(f64) -> f64>(
 
     let non_val = -1.0f64;
     let mut intervals = Vec::<[f64; 4]>::new();
-    match &init_subdiv {
+    match init_subdiv.as_deref().filter(|subdiv| !subdiv.is_empty()) {
         Some(subdiv) => {
             intervals.push([bounds.0, *subdiv.first().unwrap(), non_val, non_val]);
             for i in 0..subdiv.len() - 1 {

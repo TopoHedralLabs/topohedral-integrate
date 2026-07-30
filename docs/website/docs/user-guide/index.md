@@ -7,6 +7,12 @@ are not part of the public interface.
 
 The API is divided into three areas:
 
+## Validated values
+
+[Validated values](validated-values.md) represent polynomial degrees, point
+counts, intervals, rectangles, tolerances, and refinement depths. Constructors
+reject non-finite or otherwise invalid input before numerical work begins.
+
 ## Gaussian rules
 
 [Gaussian rules](gaussian-rules.md) produce points and weights on the standard

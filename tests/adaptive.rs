@@ -46,10 +46,9 @@ mod d1_tests {
                 assert_eq!(
                     err.to_string(),
                     "The options are invalid with reasons:\
-                    \n\tBounds invalid, low bound greater than high bound\
+                    \n\tBounds invalid, bounds must be finite and strictly increasing\
                     \n\tGauss rule order mismatch, low order greater than high order\
-                    \n\tTolerance invalid, must be positive\
-                    \n\tMaximum number of subdivisions invalid, must be positive"
+                    \n\tTolerance invalid, must be positive"
                 );
             }
         }
@@ -306,10 +305,9 @@ mod d2_tests {
                 assert_eq!(
                     err.to_string(),
                     "The options are invalid with reasons:\
-                    \n\tBounds invalid, low bound greater than high bound\
+                    \n\tBounds invalid, bounds must be finite and strictly increasing\
                     \n\tGauss rule order mismatch, low order greater than high order\
-                    \n\tTolerance invalid, must be positive\
-                    \n\tMaximum number of subdivisions invalid, must be positive"
+                    \n\tTolerance invalid, must be positive"
                 );
             }
         }

@@ -15,6 +15,7 @@
 
 mod adaptive;
 mod common;
+mod config;
 mod fixed;
 mod gauss;
 
@@ -25,6 +26,15 @@ pub use adaptive::d2::adaptive_quad as adaptive_quad_2d;
 pub use adaptive::d2::AdaptiveQuadOpts as AdaptiveQuadOpts2D;
 pub use adaptive::d2::AdaptiveQuadResult as AdaptiveQuadResult2D;
 pub use common::OptionsError;
+pub use config::AxisDepths;
+pub use config::ConfigError;
+pub use config::ConfigIssue;
+pub use config::Interval;
+pub use config::PointCount;
+pub use config::PolynomialDegree;
+pub use config::Rectangle;
+pub use config::RefinementDepth;
+pub use config::Tolerance;
 pub use fixed::d1::fixed_quad as fixed_quad_1d;
 pub use fixed::d1::FixedQuad as FixedQuad1D;
 pub use fixed::d1::FixedQuadOpts as FixedQuadOpts1D;

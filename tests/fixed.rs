@@ -65,8 +65,7 @@ mod d1_tests {
                 assert_eq!(
                     err.to_string(),
                     "The options are invalid with reasons:\
-                \n\tBounds invalid, low bound greater than high bound\
-                \n\tInitial subdivisions invalid, must be non-empty"
+                \n\tBounds invalid, bounds must be finite and strictly increasing"
                 );
             }
         }
@@ -329,8 +328,7 @@ mod d2_tests {
                 assert_eq!(
                     err.to_string(),
                     "The options are invalid with reasons:\
-                    \n\tBounds invalid, low bound greater than high bound\
-                    \n\tInitial subdivision invalid, at least 1 must be non-empty"
+                    \n\tBounds invalid, bounds must be finite and strictly increasing"
                 );
             }
         }
@@ -353,8 +351,7 @@ mod d2_tests {
                 assert_eq!(
                     err.to_string(),
                     "The options are invalid with reasons:\
-                    \n\tInitial subdivision invalid, must be within bounds\
-                    \n\tInitial subdivision invalid, must be within bounds"
+                    \n\tInitial subdivisions invalid, must be finite, strictly increasing, and inside bounds"
                 );
             }
         }

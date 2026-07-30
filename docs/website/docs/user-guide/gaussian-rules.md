@@ -34,11 +34,12 @@ constructors return `Result` and support the same range as the degree-100
 cache.
 
 ```rust
-use topohedral_integrate::{GaussFamily, GaussRule};
+use topohedral_integrate::{GaussFamily, GaussRule, PolynomialDegree};
 
-let rule = GaussRule::for_degree(GaussFamily::Legendre, 9)?;
-assert_eq!(rule.point_count(), 5);
-assert_eq!(rule.exactness(), 9);
+let degree = PolynomialDegree::new(9)?;
+let rule = GaussRule::for_degree(GaussFamily::Legendre, degree)?;
+assert_eq!(rule.point_count().value(), 5);
+assert_eq!(rule.exactness().value(), 9);
 
 let integral: f64 = rule
     .points()
@@ -48,7 +49,7 @@ let integral: f64 = rule
     .sum();
 
 assert!((integral - 2.0 / 9.0).abs() < 1e-12);
-# Ok::<(), topohedral_integrate::RuleError>(())
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 `GaussRule` is a reference-interval rule. Use a fixed quadrature rule to map it
@@ -61,17 +62,20 @@ the rule needed for the requested maximum exactness. Lookups borrow the stored
 rules, so selecting a rule does not clone its point and weight vectors.
 
 ```rust
-use topohedral_integrate::{GaussFamily, GaussRuleSet};
+use topohedral_integrate::{GaussFamily, GaussRuleSet, PointCount, PolynomialDegree};
 
-let rules = GaussRuleSet::through_degree(GaussFamily::Legendre, 90)?;
-let rule = rules.get_by_point_count(37)?;
-let same_rule = rules.get_for_degree(72)?;
+let rules = GaussRuleSet::through_degree(
+    GaussFamily::Legendre,
+    PolynomialDegree::new(90)?,
+)?;
+let rule = rules.get_by_point_count(PointCount::new(37)?)?;
+let same_rule = rules.get_for_degree(PolynomialDegree::new(72)?)?;
 
 assert_eq!(rule.family(), GaussFamily::Legendre);
-assert_eq!(rule.point_count(), 37);
+assert_eq!(rule.point_count().value(), 37);
 assert!(std::ptr::eq(rule, same_rule));
 assert_eq!(rules.iter().count(), rules.len());
-# Ok::<(), topohedral_integrate::RuleError>(())
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 Rule sets accept lookup by requested degree or point count and iterate in
@@ -85,13 +89,13 @@ lazily initialized rule sets through requested degree 100. Initialization
 errors are retained in the cache and returned deterministically on every call.
 
 ```rust
-use topohedral_integrate::lobatto_rules;
+use topohedral_integrate::{lobatto_rules, PointCount};
 
 let rules = lobatto_rules()?;
-let rule = rules.get_by_point_count(5)?;
+let rule = rules.get_by_point_count(PointCount::new(5)?)?;
 assert_eq!(rule.points().first(), Some(&-1.0));
 assert_eq!(rule.points().last(), Some(&1.0));
-# Ok::<(), topohedral_integrate::RuleError>(())
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 The fixed quadrature types use these cached sets internally.

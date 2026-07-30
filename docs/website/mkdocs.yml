@@ -31,6 +31,7 @@ nav:
   - Getting Started: getting-started.md
   - User Guide:
       - Overview: user-guide/index.md
+      - Validated Values: user-guide/validated-values.md
       - Gaussian Rules: user-guide/gaussian-rules.md
       - Fixed Quadrature: user-guide/fixed-quadrature.md
       - Adaptive Quadrature: user-guide/adaptive-quadrature.md

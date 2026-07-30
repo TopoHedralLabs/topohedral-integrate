@@ -5,6 +5,7 @@
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports
+use crate::config::{PointCount, PolynomialDegree};
 //}}}
 //{{{ std imports
 use std::sync::OnceLock;
@@ -19,6 +20,7 @@ use topohedral_linalg::{DMatrix, SubViewable};
 //{{{ static: MAX_DEGREE
 /// Largest requested polynomial exactness degree included in each cached rule set.
 pub(crate) const MAX_DEGREE: usize = 100;
+const CACHED_MAXIMUM_DEGREE: PolynomialDegree = PolynomialDegree::new_unchecked(MAX_DEGREE);
 //}}}
 //{{{ static: LEGENDRE_RULES
 static LEGENDRE_RULES: OnceLock<Result<GaussRuleSet, RuleError>> = OnceLock::new();
@@ -36,7 +38,7 @@ static LOBATTO_RULES: OnceLock<Result<GaussRuleSet, RuleError>> = OnceLock::new(
 /// Returns the deterministic rule-generation error recorded while initializing the cache.
 pub fn legendre_rules() -> Result<&'static GaussRuleSet, RuleError> {
     LEGENDRE_RULES
-        .get_or_init(|| GaussRuleSet::through_degree(GaussFamily::Legendre, MAX_DEGREE))
+        .get_or_init(|| GaussRuleSet::through_degree(GaussFamily::Legendre, CACHED_MAXIMUM_DEGREE))
         .as_ref()
         .map_err(Clone::clone)
 }
@@ -51,7 +53,7 @@ pub fn legendre_rules() -> Result<&'static GaussRuleSet, RuleError> {
 /// Returns the deterministic rule-generation error recorded while initializing the cache.
 pub fn lobatto_rules() -> Result<&'static GaussRuleSet, RuleError> {
     LOBATTO_RULES
-        .get_or_init(|| GaussRuleSet::through_degree(GaussFamily::Lobatto, MAX_DEGREE))
+        .get_or_init(|| GaussRuleSet::through_degree(GaussFamily::Lobatto, CACHED_MAXIMUM_DEGREE))
         .as_ref()
         .map_err(Clone::clone)
 }
@@ -173,7 +175,7 @@ pub enum RuleError {
 #[derive(Clone, Debug, PartialEq)]
 pub struct GaussRuleSet {
     family: GaussFamily,
-    maximum_degree: usize,
+    maximum_degree: PolynomialDegree,
     rules: Vec<GaussRule>,
 }
 //}}}
@@ -187,12 +189,12 @@ impl GaussRuleSet {
     /// [`RuleError::GenerationFailed`] if the eigendecomposition backend fails.
     pub fn through_degree(
         family: GaussFamily,
-        degree: usize,
+        degree: PolynomialDegree,
     ) -> Result<Self, RuleError> {
-        validate_degree(degree, MAX_DEGREE)?;
+        validate_degree(degree.value(), MAX_DEGREE)?;
 
         let minimum = family.minimum_point_count();
-        let maximum = family.point_count_for_degree(degree);
+        let maximum = family.point_count_for_degree(degree.value());
         let mut rules = Vec::with_capacity(maximum - minimum + 1);
         for point_count in minimum..=maximum {
             rules.push(build_gauss_rule(family, point_count)?);
@@ -213,10 +215,9 @@ impl GaussRuleSet {
     /// constructing this set.
     pub fn get_for_degree(
         &self,
-        degree: usize,
+        degree: PolynomialDegree,
     ) -> Result<&GaussRule, RuleError> {
-        validate_degree(degree, self.maximum_degree)?;
-        self.get_by_point_count(self.family.point_count_for_degree(degree))
+        self.get_for_degree_value(degree.value())
     }
 
     /// Returns the stored rule containing exactly `point_count` points.
@@ -227,16 +228,31 @@ impl GaussRuleSet {
     /// set.
     pub fn get_by_point_count(
         &self,
+        point_count: PointCount,
+    ) -> Result<&GaussRule, RuleError> {
+        self.get_by_point_count_value(point_count.value())
+    }
+
+    pub(crate) fn get_for_degree_value(
+        &self,
+        degree: usize,
+    ) -> Result<&GaussRule, RuleError> {
+        validate_degree(degree, self.maximum_degree.value())?;
+        self.get_by_point_count_value(self.family.point_count_for_degree(degree))
+    }
+
+    fn get_by_point_count_value(
+        &self,
         point_count: usize,
     ) -> Result<&GaussRule, RuleError> {
         let minimum = self.family.minimum_point_count();
         let maximum = self.maximum_point_count();
-        if !(minimum..=maximum).contains(&point_count) {
+        if !(minimum..=maximum.value()).contains(&point_count) {
             return Err(RuleError::PointCountOutOfRange {
                 family: self.family,
                 point_count,
                 minimum,
-                maximum,
+                maximum: maximum.value(),
             });
         }
         Ok(&self.rules[point_count - minimum])
@@ -248,18 +264,21 @@ impl GaussRuleSet {
     }
 
     /// Returns the largest requested polynomial degree represented by this set.
-    pub fn maximum_degree(&self) -> usize {
+    pub fn maximum_degree(&self) -> PolynomialDegree {
         self.maximum_degree
     }
 
     /// Returns the smallest point count represented by this set.
-    pub fn minimum_point_count(&self) -> usize {
-        self.family.minimum_point_count()
+    pub fn minimum_point_count(&self) -> PointCount {
+        PointCount::new_unchecked(self.family.minimum_point_count())
     }
 
     /// Returns the largest point count represented by this set.
-    pub fn maximum_point_count(&self) -> usize {
-        self.family.point_count_for_degree(self.maximum_degree)
+    pub fn maximum_point_count(&self) -> PointCount {
+        PointCount::new_unchecked(
+            self.family
+                .point_count_for_degree(self.maximum_degree.value()),
+        )
     }
 
     /// Returns the number of rules in this set.
@@ -288,7 +307,7 @@ impl GaussRuleSet {
 #[derive(Clone, Debug, PartialEq)]
 pub struct GaussRule {
     family: GaussFamily,
-    exactness: usize,
+    exactness: PolynomialDegree,
     points: Vec<f64>,
     weights: Vec<f64>,
 }
@@ -306,7 +325,7 @@ impl GaussRule {
             .expect("validated point counts have representable exactness");
         Self {
             family,
-            exactness,
+            exactness: PolynomialDegree::new_unchecked(exactness),
             points,
             weights,
         }
@@ -323,10 +342,10 @@ impl GaussRule {
     /// [`RuleError::GenerationFailed`] if the eigendecomposition backend fails.
     pub fn for_degree(
         family: GaussFamily,
-        degree: usize,
+        degree: PolynomialDegree,
     ) -> Result<Self, RuleError> {
-        validate_degree(degree, MAX_DEGREE)?;
-        build_gauss_rule(family, family.point_count_for_degree(degree))
+        validate_degree(degree.value(), MAX_DEGREE)?;
+        build_gauss_rule(family, family.point_count_for_degree(degree.value()))
     }
 
     /// Constructs a quadrature rule containing exactly `point_count` points.
@@ -337,10 +356,10 @@ impl GaussRule {
     /// or [`RuleError::GenerationFailed`] if the eigendecomposition backend fails.
     pub fn with_point_count(
         family: GaussFamily,
-        point_count: usize,
+        point_count: PointCount,
     ) -> Result<Self, RuleError> {
-        validate_point_count(family, point_count)?;
-        build_gauss_rule(family, point_count)
+        validate_point_count(family, point_count.value())?;
+        build_gauss_rule(family, point_count.value())
     }
 
     /// Returns the quadrature family used to construct this rule.
@@ -349,13 +368,13 @@ impl GaussRule {
     }
 
     /// Returns the rule's actual polynomial exactness.
-    pub fn exactness(&self) -> usize {
+    pub fn exactness(&self) -> PolynomialDegree {
         self.exactness
     }
 
     /// Returns the number of quadrature points and weights.
-    pub fn point_count(&self) -> usize {
-        self.points.len()
+    pub fn point_count(&self) -> PointCount {
+        PointCount::new_unchecked(self.points.len())
     }
 
     /// Returns the quadrature points in ascending order.

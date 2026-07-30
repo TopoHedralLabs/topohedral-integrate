@@ -3,6 +3,7 @@
 
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
+use crate::config::{validate_subdivisions, Rectangle};
 use crate::gauss::GaussFamily;
 use crate::gauss::MAX_DEGREE;
 //}}}
@@ -25,8 +26,8 @@ pub struct FixedQuadOpts {
     pub bounds: (f64, f64, f64, f64),
     /// Optional interior subdivision coordinates in `(u, v)` order.
     ///
-    /// Each nonempty coordinate list should be strictly increasing to form a non-overlapping
-    /// partition. The constructor validates only that coordinates lie within their bounds.
+    /// Each coordinate list must contain finite, strictly increasing points that are strictly
+    /// interior to their axis bounds. Empty vectors mean no subdivision on that axis.
     pub subdiv: Option<(Vec<f64>, Vec<f64>)>,
 }
 //}}}
@@ -50,40 +51,25 @@ impl OptionsVerify for FixedQuadOpts {
             append_reason(&mut err, "Quadrature order is not supported");
         }
 
-        if self.bounds.0 > self.bounds.1 || self.bounds.2 > self.bounds.3 {
-            ok = false;
+        let rectangle =
+            Rectangle::from_bounds(self.bounds.0, self.bounds.1, self.bounds.2, self.bounds.3);
+        if rectangle.is_err() {
             append_reason(
                 &mut err,
-                "Bounds invalid, low bound greater than high bound",
+                "Bounds invalid, bounds must be finite and strictly increasing",
             );
+            ok = false;
         }
 
-        if let Some(subdiv) = &self.subdiv {
-            if subdiv.0.is_empty() && subdiv.1.is_empty() {
-                ok = false;
+        if let (Ok(rectangle), Some(subdivisions)) = (rectangle, &self.subdiv) {
+            if validate_subdivisions(rectangle.u(), subdivisions.0.iter().copied()).is_err()
+                || validate_subdivisions(rectangle.v(), subdivisions.1.iter().copied()).is_err()
+            {
                 append_reason(
                     &mut err,
-                    "Initial subdivision invalid, at least 1 must be non-empty",
+                    "Initial subdivisions invalid, must be finite, strictly increasing, and inside bounds",
                 );
-            }
-
-            for u in &subdiv.0 {
-                if *u < self.bounds.0 || *u > self.bounds.1 {
-                    ok = false;
-                    append_reason(
-                        &mut err,
-                        "Initial subdivision invalid, must be within bounds",
-                    );
-                }
-            }
-            for v in &subdiv.1 {
-                if *v < self.bounds.2 || *v > self.bounds.3 {
-                    ok = false;
-                    append_reason(
-                        &mut err,
-                        "Initial subdivision invalid, must be within bounds",
-                    );
-                }
+                ok = false;
             }
         }
 
