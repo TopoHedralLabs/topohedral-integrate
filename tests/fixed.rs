@@ -7,7 +7,7 @@ mod d1_tests {
     use std::fs;
     use topohedral_integrate::{
         fixed_quad_1d as fixed_quad, FixedQuad1D as FixedQuad, FixedQuadOpts1D as FixedQuadOpts,
-        GaussQuadType,
+        GaussFamily,
     };
 
     const MAX_REL: f64 = 1e-14;
@@ -51,7 +51,7 @@ mod d1_tests {
     #[test]
     fn test_fixed_quad_opts() {
         let opts = FixedQuadOpts {
-            gauss_type: GaussQuadType::Legendre,
+            gauss_type: GaussFamily::Legendre,
             order: 3,
             bounds: (1.0, 0.0),
             subdiv: Some(Vec::<f64>::new()),
@@ -75,7 +75,7 @@ mod d1_tests {
     #[test]
     fn test_fixed_quad_stores_opts() {
         let rule = FixedQuad::new(FixedQuadOpts {
-            gauss_type: GaussQuadType::Legendre,
+            gauss_type: GaussFamily::Legendre,
             order: 3,
             bounds: (-1.0, 1.0),
             subdiv: Some(vec![0.0]),
@@ -92,7 +92,7 @@ mod d1_tests {
         let integral = fixed_quad(
             &|x: f64| x,
             FixedQuadOpts {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 0,
                 bounds: (2.0, 5.0),
                 subdiv: None,
@@ -123,7 +123,7 @@ mod d1_tests {
 
                 {
                     let opts = FixedQuadOpts {
-                        gauss_type: GaussQuadType::Legendre,
+                        gauss_type: GaussFamily::Legendre,
                         order: 2 * $nqp - 1,
                         bounds: range,
                         subdiv: None,
@@ -137,7 +137,7 @@ mod d1_tests {
                     let b = range.0 + 2.0 * dx;
 
                     let opts = FixedQuadOpts {
-                        gauss_type: GaussQuadType::Legendre,
+                        gauss_type: GaussFamily::Legendre,
                         order: 2 * $nqp - 1,
                         bounds: range,
                         subdiv: vec![a, b].into(),
@@ -204,7 +204,7 @@ mod d1_tests {
 
                 {
                     let opts = FixedQuadOpts {
-                        gauss_type: GaussQuadType::Lobatto,
+                        gauss_type: GaussFamily::Lobatto,
                         order: 2 * $nqp - 3,
                         bounds: range,
                         subdiv: None,
@@ -218,7 +218,7 @@ mod d1_tests {
                     let b = range.0 + 2.0 * dx;
 
                     let opts = FixedQuadOpts {
-                        gauss_type: GaussQuadType::Lobatto,
+                        gauss_type: GaussFamily::Lobatto,
                         order: 2 * $nqp - 3,
                         bounds: range,
                         subdiv: vec![a, b].into(),
@@ -262,7 +262,7 @@ mod d2_tests {
 
     //{{{ collection: imports
     use approx::assert_relative_eq;
-    use topohedral_integrate::GaussQuadType;
+    use topohedral_integrate::GaussFamily;
 
     mod d2 {
         pub use topohedral_integrate::{
@@ -315,7 +315,7 @@ mod d2_tests {
     #[test]
     fn test_fixed_quad_opts1() {
         let opts = d2::FixedQuadOpts {
-            gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+            gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
             order: (3, 3),
             bounds: (2.0, 0.0, 2.0, 0.0),
             subdiv: Some((Vec::<f64>::new(), Vec::new())),
@@ -339,7 +339,7 @@ mod d2_tests {
     #[test]
     fn test_fixed_quad_opts2() {
         let opts = d2::FixedQuadOpts {
-            gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+            gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
             order: (3, 3),
             bounds: (1.0, 2.0, 1.0, 2.0),
             subdiv: Some((vec![0.0], vec![0.0])),
@@ -363,7 +363,7 @@ mod d2_tests {
     #[test]
     fn test_fixed_quad_stores_opts() {
         let rule = d2::FixedQuad::new(d2::FixedQuadOpts {
-            gauss_type: (GaussQuadType::Legendre, GaussQuadType::Lobatto),
+            gauss_type: (GaussFamily::Legendre, GaussFamily::Lobatto),
             order: (3, 3),
             bounds: (-1.0, 1.0, -2.0, 2.0),
             subdiv: Some((vec![0.0], vec![1.0])),
@@ -380,7 +380,7 @@ mod d2_tests {
         let integral = d2::fixed_quad(
             &|x: f64, y: f64| x + y,
             d2::FixedQuadOpts {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (0, 0),
                 bounds: (1.0, 3.0, -2.0, 2.0),
                 subdiv: None,
@@ -416,7 +416,7 @@ mod d2_tests {
 
                 {
                     let opts = d2::FixedQuadOpts {
-                        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                        gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                         order: (2 * $nqp - 1, 2 * $nqp - 1),
                         bounds: range,
                         subdiv: None,
@@ -433,7 +433,7 @@ mod d2_tests {
                     let d = range.2 + 2.0 * dy;
 
                     let opts = d2::FixedQuadOpts {
-                        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                        gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                         order: (2 * $nqp - 1, 2 * $nqp - 1),
                         bounds: range,
                         subdiv: Some((vec![a, b], vec![c, d])),
@@ -504,7 +504,7 @@ mod d2_tests {
 
                 {
                     let opts = d2::FixedQuadOpts {
-                        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                        gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                         order: (2 * $nqp - 1, 2 * $nqp - 1),
                         bounds: range,
                         subdiv: None,
@@ -521,7 +521,7 @@ mod d2_tests {
                     let d = range.2 + 2.0 * dy;
 
                     let opts = d2::FixedQuadOpts {
-                        gauss_type: (GaussQuadType::Lobatto, GaussQuadType::Lobatto),
+                        gauss_type: (GaussFamily::Lobatto, GaussFamily::Lobatto),
                         order: (2 * $nqp - 1, 2 * $nqp - 1),
                         bounds: range,
                         subdiv: Some((vec![a, b], vec![c, d])),

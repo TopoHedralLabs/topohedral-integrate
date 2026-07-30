@@ -3,8 +3,8 @@
 
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
-use crate::gauss::GaussQuadType;
-use crate::gauss::MAX_ORDER;
+use crate::gauss::GaussFamily;
+use crate::gauss::MAX_DEGREE;
 //}}}
 //{{{ std imports
 //}}}
@@ -18,7 +18,7 @@ use super::*;
 #[derive(Debug)]
 pub struct FixedQuadOpts {
     /// Gauss quadrature families in `(u, v)` order.
-    pub gauss_type: (GaussQuadType, GaussQuadType),
+    pub gauss_type: (GaussFamily, GaussFamily),
     /// Minimum polynomial exactness in `(u, v)` order.
     pub order: (usize, usize),
     /// Rectangular integration bounds `(u_min, u_max, v_min, v_max)`.
@@ -43,8 +43,8 @@ impl OptionsVerify for FixedQuadOpts {
             OptionsError::InvalidOptionsShort
         };
 
-        let valid_u_order = self.order.0 <= MAX_ORDER;
-        let valid_v_order = self.order.1 <= MAX_ORDER;
+        let valid_u_order = self.order.0 <= MAX_DEGREE;
+        let valid_v_order = self.order.1 <= MAX_DEGREE;
         if !valid_u_order || !valid_v_order {
             ok = false;
             append_reason(&mut err, "Quadrature order is not supported");
@@ -111,7 +111,8 @@ impl FixedQuad {
     //{{{ fun: new
     /// Builds a reusable tensor-product quadrature rule from `opts`.
     ///
-    /// Returns [`OptionsError`] when the options are invalid.
+    /// Returns [`OptionsError`] when the options are invalid or a cached Gaussian rule could not be
+    /// initialized.
     pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
         opts.is_ok(true)?;
 
@@ -127,9 +128,9 @@ impl FixedQuad {
             .as_ref()
             .and_then(|subdiv| (!subdiv.1.is_empty()).then_some(subdiv.1.as_slice()));
 
-        let fixed_rule_u = d1::build_points_weights(u_gauss_type, u_order, (umin, umax), u_subdiv);
+        let fixed_rule_u = d1::build_points_weights(u_gauss_type, u_order, (umin, umax), u_subdiv)?;
 
-        let fixed_rule_v = d1::build_points_weights(v_gauss_type, v_order, (vmin, vmax), v_subdiv);
+        let fixed_rule_v = d1::build_points_weights(v_gauss_type, v_order, (vmin, vmax), v_subdiv)?;
 
         let nqp_u = fixed_rule_u.len() / 2;
         let nqp_v = fixed_rule_v.len() / 2;
@@ -206,7 +207,8 @@ impl FixedQuad {
 //{{{ fun: fixed_quad
 /// Integrates `f` over `opts.bounds` using a newly constructed tensor-product rule.
 ///
-/// Returns [`OptionsError`] when `opts` is invalid.
+/// Returns [`OptionsError`] when `opts` is invalid or a cached Gaussian rule could not be
+/// initialized.
 pub fn fixed_quad<F: Fn(f64, f64) -> f64>(
     f: &F,
     opts: FixedQuadOpts,

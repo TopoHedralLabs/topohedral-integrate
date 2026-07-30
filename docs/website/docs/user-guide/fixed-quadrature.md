@@ -9,7 +9,7 @@ several functions over the same domain.
 
 Configure `FixedQuad1D` with `FixedQuadOpts1D`:
 
-- `gauss_type`: `GaussQuadType::Legendre` or `GaussQuadType::Lobatto`;
+- `gauss_type`: `GaussFamily::Legendre` or `GaussFamily::Lobatto`;
 - `order`: requested polynomial exactness of the Gaussian rule;
 - `bounds`: `(lower, upper)`;
 - `subdiv`: optional strictly interior subdivision points.
@@ -22,10 +22,10 @@ constructor takes ownership of the options and retains them as `rule.opts`.
 The polynomial tests use the same pattern:
 
 ```rust
-use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
+use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussFamily};
 
 let opts = FixedQuadOpts1D {
-    gauss_type: GaussQuadType::Legendre,
+    gauss_type: GaussFamily::Legendre,
     order: 9,
     bounds: (-2.0, 3.0),
     subdiv: Some(vec![0.0]),
@@ -44,10 +44,10 @@ The optional bounds passed to `integrate` reuse the same rule on a different
 interval:
 
 ```rust
-use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
+use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussFamily};
 
 let rule = FixedQuad1D::new(FixedQuadOpts1D {
-    gauss_type: GaussQuadType::Legendre,
+    gauss_type: GaussFamily::Legendre,
     order: 9,
     bounds: (-1.0, 1.0),
     subdiv: None,
@@ -70,10 +70,10 @@ use one value per coordinate direction:
 The function supplied to `integrate` has type `Fn(f64, f64) -> f64`:
 
 ```rust
-use topohedral_integrate::{FixedQuad2D, FixedQuadOpts2D, GaussQuadType};
+use topohedral_integrate::{FixedQuad2D, FixedQuadOpts2D, GaussFamily};
 
 let opts = FixedQuadOpts2D {
-    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+    gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
     order: (5, 5),
     bounds: (-1.0, 1.0, -1.0, 1.0),
     subdiv: None,
@@ -94,10 +94,10 @@ When a rule will be used only once, `fixed_quad_1d` and `fixed_quad_2d`
 construct the corresponding fixed rule and immediately integrate the function:
 
 ```rust
-use topohedral_integrate::{fixed_quad_1d, FixedQuadOpts1D, GaussQuadType};
+use topohedral_integrate::{fixed_quad_1d, FixedQuadOpts1D, GaussFamily};
 
 let opts = FixedQuadOpts1D {
-    gauss_type: GaussQuadType::Lobatto,
+    gauss_type: GaussFamily::Lobatto,
     order: 7,
     bounds: (-1.0, 1.0),
     subdiv: None,

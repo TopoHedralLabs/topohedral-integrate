@@ -1,7 +1,7 @@
 # User Guide
 
 The crate exposes its complete public API at the crate root. Import symbols
-such as `GaussQuad`, `FixedQuad1D`, and `adaptive_quad_2d` directly from
+such as `GaussRule`, `FixedQuad1D`, and `adaptive_quad_2d` directly from
 `topohedral_integrate`; the internal `gauss`, `fixed`, and `adaptive` modules
 are not part of the public interface.
 
@@ -10,9 +10,9 @@ The API is divided into three areas:
 ## Gaussian rules
 
 [Gaussian rules](gaussian-rules.md) produce points and weights on the standard
-interval \([-1, 1]\). Use `GaussQuad` for one rule, or `GuassQuadSet` when
+interval \([-1, 1]\). Use `GaussRule` for one rule, or `GaussRuleSet` when
 several orders are needed. Both Gauss-Legendre and Gauss-Lobatto families are
-available through `GaussQuadType`.
+available through `GaussFamily`.
 
 ## Fixed quadrature
 
@@ -35,10 +35,10 @@ adaptive integration functions return `Result` and report invalid options as
 an `OptionsError`:
 
 ```rust
-use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
+use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussFamily};
 
 let result = FixedQuad1D::new(FixedQuadOpts1D {
-    gauss_type: GaussQuadType::Legendre,
+    gauss_type: GaussFamily::Legendre,
     order: 9,
     bounds: (-1.0, 1.0),
     subdiv: None,

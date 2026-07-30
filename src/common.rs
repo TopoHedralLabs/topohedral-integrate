@@ -7,6 +7,7 @@
 //{{{ std imports
 //}}}
 //{{{ dep imports
+use crate::gauss::RuleError;
 use thiserror::Error;
 //}}}
 //--------------------------------------------------------------------------------------------------
@@ -35,6 +36,9 @@ pub enum OptionsError {
     /// The options are invalid, with one or more human-readable reasons.
     #[error("The options are invalid with reasons:{0}")]
     InvalidOptionsFull(String),
+    /// A Gaussian rule could not be constructed.
+    #[error(transparent)]
+    Rule(#[from] RuleError),
 }
 
 /// Appends the reason to the error.
@@ -47,6 +51,7 @@ pub fn append_reason(
         OptionsError::InvalidOptionsFull(s) => {
             s.push_str(format!("\n\t{reason}").as_str());
         }
+        OptionsError::Rule(_) => {}
     }
 }
 

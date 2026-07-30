@@ -8,7 +8,7 @@ mod d1_tests {
     //!   in a way that you can justify then change the expected values.
 
     use approx::assert_abs_diff_eq;
-    use topohedral_integrate::{FixedQuadOpts1D as FixedQuadOptsD1, GaussQuadType};
+    use topohedral_integrate::{FixedQuadOpts1D as FixedQuadOptsD1, GaussFamily};
 
     mod d1 {
         pub use topohedral_integrate::{
@@ -22,13 +22,13 @@ mod d1_tests {
         let opts = d1::AdaptiveQuadOpts {
             bounds: (1.0, 0.0),
             fixed_rule_low: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
@@ -63,13 +63,13 @@ mod d1_tests {
         let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 10.0),
             fixed_rule_low: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
@@ -98,13 +98,13 @@ mod d1_tests {
         let opts = d1::AdaptiveQuadOpts {
             bounds: (0.0, 30.0),
             fixed_rule_low: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
@@ -131,13 +131,13 @@ mod d1_tests {
         let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 4.0),
             fixed_rule_low: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
@@ -164,13 +164,13 @@ mod d1_tests {
         let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 4.0),
             fixed_rule_low: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
@@ -197,13 +197,13 @@ mod d1_tests {
         let opts = d1::AdaptiveQuadOpts {
             bounds: (-3.0, 3.0),
             fixed_rule_low: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
@@ -232,13 +232,13 @@ mod d1_tests {
         let opts = d1::AdaptiveQuadOpts {
             bounds: (0.0, 10.0),
             fixed_rule_low: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 10,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD1 {
-                gauss_type: GaussQuadType::Legendre,
+                gauss_type: GaussFamily::Legendre,
                 order: 30,
                 bounds: (-1.0, 1.0),
                 subdiv: None,
@@ -269,7 +269,7 @@ mod d2_tests {
     //!
 
     use approx::assert_abs_diff_eq;
-    use topohedral_integrate::{FixedQuadOpts2D as FixedQuadOptsD2, GaussQuadType};
+    use topohedral_integrate::{FixedQuadOpts2D as FixedQuadOptsD2, GaussFamily};
 
     mod d2 {
         pub use topohedral_integrate::{
@@ -282,13 +282,13 @@ mod d2_tests {
         let opts = d2::AdaptiveQuadOpts {
             bounds: (1.0, 0.0, 1.0, 0.0),
             fixed_rule_low: FixedQuadOptsD2 {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (30, 30),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD2 {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (10, 10),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
@@ -326,13 +326,13 @@ mod d2_tests {
         let opts = d2::AdaptiveQuadOpts {
             bounds: (-0.3, 5.0, -3.0, 2.0),
             fixed_rule_low: FixedQuadOptsD2 {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (10, 10),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD2 {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (30, 30),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
@@ -359,13 +359,13 @@ mod d2_tests {
         let opts = d2::AdaptiveQuadOpts {
             bounds: (0.0, 30.0, 0.0, 30.0),
             fixed_rule_low: FixedQuadOptsD2 {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (10, 10),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD2 {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (30, 30),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
@@ -393,13 +393,13 @@ mod d2_tests {
         let opts = d2::AdaptiveQuadOpts {
             bounds: (-3.0, 4.0, 0.0, 5.0),
             fixed_rule_low: FixedQuadOptsD2 {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (10, 10),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
             },
             fixed_rule_high: FixedQuadOptsD2 {
-                gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                 order: (30, 30),
                 bounds: (-1.0, 1.0, -1.0, 1.0),
                 subdiv: None,
@@ -426,13 +426,13 @@ mod d2_tests {
             let opts = d2::AdaptiveQuadOpts {
                 bounds: (-3.0, 4.0, 0.0, 5.0),
                 fixed_rule_low: FixedQuadOptsD2 {
-                    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                    gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                     order: (10, 10),
                     bounds: (-1.0, 1.0, -1.0, 1.0),
                     subdiv: None,
                 },
                 fixed_rule_high: FixedQuadOptsD2 {
-                    gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+                    gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
                     order: (30, 30),
                     bounds: (-1.0, 1.0, -1.0, 1.0),
                     subdiv: None,

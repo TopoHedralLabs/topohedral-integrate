@@ -4,7 +4,6 @@
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
 use crate::fixed as fi;
-// use crate::gauss::GaussQuadType;
 //}}}
 //{{{ std imports
 //}}}
@@ -222,6 +221,7 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
     }
     //}}}
     //{{{ com: perform adaptive quadrature
+    #[cfg(feature = "enable_trace")]
     let mut iter = 0;
     while !has_converged {
         //{{{ trace
@@ -276,7 +276,10 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
             marked.clear();
         }
         //}}}
-        iter += 1;
+        #[cfg(feature = "enable_trace")]
+        {
+            iter += 1;
+        }
     }
     //}}}
     //{{{ com: sum up the integrals and errors

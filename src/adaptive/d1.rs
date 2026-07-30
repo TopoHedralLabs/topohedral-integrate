@@ -6,7 +6,6 @@
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
 use crate::fixed as fi;
-// use crate::gauss::GaussQuadType;
 //}}}
 //{{{ std imports
 //}}}
@@ -166,20 +165,20 @@ fn error_estimate<F: Fn(f64) -> f64>(
 /// ```
 ///
 /// use topohedral_integrate::{
-///     adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuadOpts1D, GaussQuadType,
+///     adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuadOpts1D, GaussFamily,
 /// };
 ///
 /// let f = |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
 /// let opts = AdaptiveQuadOpts1D {
 ///     bounds: (-3.0, 10.0),
 ///     fixed_rule_low: FixedQuadOpts1D {
-///         gauss_type: GaussQuadType::Legendre,
+///         gauss_type: GaussFamily::Legendre,
 ///         order: 10,
 ///         bounds: (-1.0, 1.0),
 ///         subdiv: None,
 ///     },
 ///     fixed_rule_high: FixedQuadOpts1D {
-///         gauss_type: GaussQuadType::Legendre,
+///         gauss_type: GaussFamily::Legendre,
 ///         order: 30,
 ///         bounds: (-1.0, 1.0),
 ///         subdiv:None,
@@ -233,6 +232,7 @@ pub fn adaptive_quad<F: Fn(f64) -> f64>(
     let nqp = fixed_rule_low.nqp() + fixed_rule_high.nqp();
     //}}}
     //{{{ com: perform adaptive quadrature
+    #[cfg(feature = "enable_trace")]
     let mut iter = 0;
     while !has_converged {
         //{{{ trace
@@ -310,7 +310,10 @@ pub fn adaptive_quad<F: Fn(f64) -> f64>(
             marked.clear();
         }
         //}}}
-        iter += 1;
+        #[cfg(feature = "enable_trace")]
+        {
+            iter += 1;
+        }
     }
     //}}}
     //{{{ com: sum up integrals and errors

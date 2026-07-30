@@ -18,10 +18,10 @@ The following example integrates \(x^2\) over \([-1, 1]\) with a reusable
 five-point Gauss-Legendre rule:
 
 ```rust
-use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
+use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussFamily};
 
 let opts = FixedQuadOpts1D {
-    gauss_type: GaussQuadType::Legendre,
+    gauss_type: GaussFamily::Legendre,
     order: 9,
     bounds: (-1.0, 1.0),
     subdiv: None,

@@ -31,11 +31,12 @@ pub use fixed::d1::FixedQuadOpts as FixedQuadOpts1D;
 pub use fixed::d2::fixed_quad as fixed_quad_2d;
 pub use fixed::d2::FixedQuad as FixedQuad2D;
 pub use fixed::d2::FixedQuadOpts as FixedQuadOpts2D;
-pub use gauss::get_legendre_points;
-pub use gauss::get_lobatto_points;
-pub use gauss::GaussQuad;
-pub use gauss::GaussQuadType;
-pub use gauss::GuassQuadSet;
+pub use gauss::legendre_rules;
+pub use gauss::lobatto_rules;
+pub use gauss::GaussFamily;
+pub use gauss::GaussRule;
+pub use gauss::GaussRuleSet;
+pub use gauss::RuleError;
 
 //-------------------------------------------------------------------------------------------------
 //{{{ mod: tests

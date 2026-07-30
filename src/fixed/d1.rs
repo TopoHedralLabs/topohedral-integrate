@@ -3,7 +3,7 @@
 
 //{{{ crate imports
 use crate::common::{append_reason, OptionsError, OptionsVerify};
-use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuadType, MAX_ORDER};
+use crate::gauss::{legendre_rules, lobatto_rules, GaussFamily, GaussRule, RuleError, MAX_DEGREE};
 //}}}
 //{{{ std imports
 //}}}
@@ -16,7 +16,7 @@ use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuad
 #[derive(Debug)]
 pub struct FixedQuadOpts {
     /// Gauss quadrature family used on every subinterval.
-    pub gauss_type: GaussQuadType,
+    pub gauss_type: GaussFamily,
     /// Minimum polynomial exactness requested for the rule.
     pub order: usize,
     /// Integration interval `(lower, upper)`.
@@ -41,7 +41,7 @@ impl OptionsVerify for FixedQuadOpts {
             OptionsError::InvalidOptionsShort
         };
 
-        if self.order > MAX_ORDER {
+        if self.order > MAX_DEGREE {
             ok = false;
             append_reason(&mut err, "Quadrature order is not supported");
         }
@@ -95,7 +95,8 @@ impl FixedQuad {
     //{{{ fun: new
     /// Builds a reusable fixed quadrature rule from `opts`.
     ///
-    /// Returns [`OptionsError`] when the options are invalid.
+    /// Returns [`OptionsError`] when the options are invalid or the cached Gaussian rule could not
+    /// be initialized.
     pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
         opts.is_ok(true)?;
         let points_weights = build_points_weights(
@@ -103,7 +104,7 @@ impl FixedQuad {
             opts.order,
             opts.bounds,
             opts.subdiv.as_deref(),
-        );
+        )?;
 
         Ok(Self {
             points_weights,
@@ -157,26 +158,26 @@ impl FixedQuad {
 //}}}
 //{{{ fun: build_points_weights
 pub(super) fn build_points_weights(
-    gauss_type: GaussQuadType,
+    gauss_type: GaussFamily,
     order: usize,
     bounds: (f64, f64),
     subdiv: Option<&[f64]>,
-) -> Vec<f64> {
+) -> Result<Vec<f64>, RuleError> {
     let gauss_rule = match gauss_type {
-        GaussQuadType::Legendre => get_legendre_points().gauss_quad_from_order(order),
-        GaussQuadType::Lobatto => get_lobatto_points().gauss_quad_from_order(order),
+        GaussFamily::Legendre => legendre_rules()?.get_for_degree(order)?,
+        GaussFamily::Lobatto => lobatto_rules()?.get_for_degree(order)?,
     };
 
     let num_divs = subdiv.map_or(1, |subdiv| subdiv.len() + 1);
-    let mut points_weights = Vec::with_capacity(2 * gauss_rule.nqp * num_divs);
-    let (a, b) = gauss_rule.gauss_type.range();
+    let mut points_weights = Vec::with_capacity(2 * gauss_rule.point_count() * num_divs);
+    let (a, b) = gauss_rule.family().range();
 
     let mut append_interval = |c: f64, d: f64| {
         let jac = (d - c) / (b - a);
-        for i in 0..gauss_rule.nqp {
-            let zi = gauss_rule.points[i];
+        for i in 0..gauss_rule.point_count() {
+            let zi = gauss_rule.points()[i];
             let xi = c + jac * (zi - a);
-            let wi = jac * gauss_rule.weights[i];
+            let wi = jac * gauss_rule.weights()[i];
             points_weights.push(xi);
             points_weights.push(wi);
         }
@@ -193,13 +194,14 @@ pub(super) fn build_points_weights(
         None => append_interval(bounds.0, bounds.1),
     }
 
-    points_weights
+    Ok(points_weights)
 }
 //}}}
 //{{{ fun: fixed_quad
 /// Integrates `f` over `opts.bounds` using a newly constructed fixed rule.
 ///
-/// Returns [`OptionsError`] when `opts` is invalid.
+/// Returns [`OptionsError`] when `opts` is invalid or the cached Gaussian rule could not be
+/// initialized.
 pub fn fixed_quad<F: Fn(f64) -> f64>(
     f: &F,
     opts: FixedQuadOpts,
@@ -208,16 +210,16 @@ pub fn fixed_quad<F: Fn(f64) -> f64>(
     Ok(quad_rule.integrate(f, None))
 }
 //}}}
-//{{{ impl: From<GaussQuad> for FixedQuad
+//{{{ impl: From<GaussRule> for FixedQuad
 /// Converts a Gauss rule on its reference interval into a reusable fixed rule.
-impl From<GaussQuad> for FixedQuad {
-    fn from(value: GaussQuad) -> Self {
-        let nqp = value.nqp;
-        let mut points_weights = Vec::with_capacity(nqp * 2);
+impl From<GaussRule> for FixedQuad {
+    fn from(value: GaussRule) -> Self {
+        let point_count = value.point_count();
+        let mut points_weights = Vec::with_capacity(point_count * 2);
 
-        for i in 0..nqp {
-            let xi = value.points[i];
-            let wi = value.weights[i];
+        for i in 0..point_count {
+            let xi = value.points()[i];
+            let wi = value.weights()[i];
             points_weights.push(xi);
             points_weights.push(wi);
         }
@@ -225,9 +227,9 @@ impl From<GaussQuad> for FixedQuad {
         Self {
             points_weights,
             opts: FixedQuadOpts {
-                gauss_type: value.gauss_type,
-                order: value.gauss_type.order_from_nqp(nqp),
-                bounds: value.gauss_type.range(),
+                gauss_type: value.family(),
+                order: value.exactness(),
+                bounds: value.family().range(),
                 subdiv: None,
             },
         }

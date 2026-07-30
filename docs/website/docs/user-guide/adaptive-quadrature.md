@@ -26,19 +26,19 @@ known corner at \(x=-1\) allows the algorithm to start with smooth pieces:
 
 ```rust
 use topohedral_integrate::{
-    adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuadOpts1D, GaussQuadType,
+    adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuadOpts1D, GaussFamily,
 };
 
 let opts = AdaptiveQuadOpts1D {
     bounds: (-3.0, 4.0),
     fixed_rule_low: FixedQuadOpts1D {
-        gauss_type: GaussQuadType::Legendre,
+        gauss_type: GaussFamily::Legendre,
         order: 10,
         bounds: (-1.0, 1.0),
         subdiv: None,
     },
     fixed_rule_high: FixedQuadOpts1D {
-        gauss_type: GaussQuadType::Legendre,
+        gauss_type: GaussFamily::Legendre,
         order: 30,
         bounds: (-1.0, 1.0),
         subdiv: None,
@@ -69,19 +69,19 @@ adaptive routine remaps them to each subinterval.
 
 ```rust
 use topohedral_integrate::{
-    adaptive_quad_2d, AdaptiveQuadOpts2D, FixedQuadOpts2D, GaussQuadType,
+    adaptive_quad_2d, AdaptiveQuadOpts2D, FixedQuadOpts2D, GaussFamily,
 };
 
 let opts = AdaptiveQuadOpts2D {
     bounds: (0.0, 1.0, 0.0, 1.0),
     fixed_rule_low: FixedQuadOpts2D {
-        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+        gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
         order: (3, 3),
         bounds: (-1.0, 1.0, -1.0, 1.0),
         subdiv: None,
     },
     fixed_rule_high: FixedQuadOpts2D {
-        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
+        gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
         order: (7, 7),
         bounds: (-1.0, 1.0, -1.0, 1.0),
         subdiv: None,
