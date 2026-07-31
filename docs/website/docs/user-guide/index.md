@@ -4,7 +4,7 @@ The public API is flat: Gaussian rules, validated configuration values, fixed
 quadratures, and adaptive entry points are all available at the crate root.
 Dimensional types use explicit `1D` and `2D` suffixes.
 
-The API is divided into three areas:
+The API is divided into four areas:
 
 ## Validated values
 
@@ -28,9 +28,11 @@ and can be reused for multiple functions.
 ## Adaptive quadrature
 
 [Adaptive quadrature](adaptive-quadrature.md) repeatedly subdivides intervals
-or rectangles whose low- and high-order estimates differ by more than the
-requested tolerance. The `adaptive_quad_1d` and `adaptive_quad_2d` functions
-return both the integral and diagnostic information.
+or rectangles, refining the largest-error region until the global
+absolute-plus-relative tolerance is met. `AdaptiveQuadrature1D` and
+`AdaptiveQuadrature2D` return a shared `AdaptiveResult` with the high-order
+integral and diagnostic information. The `adaptive_quad_1d` and
+`adaptive_quad_2d` helpers provide the corresponding one-shot interface.
 
 ## Options validation
 

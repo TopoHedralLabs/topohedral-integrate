@@ -1,334 +1,324 @@
-//! This module contains the implementation of adaptive quadrature rules for one-dimensional
-//! real-valued functions.
-//!
-//--------------------------------------------------------------------------------------------------
+//! Adaptive quadrature for one-dimensional real-valued functions.
 
-//{{{ crate imports
-use crate::common::{append_reason, OptionsError, OptionsVerify};
-use crate::config::{validate_subdivisions, Interval, Tolerance};
-use crate::fixed as fi;
-//}}}
-//{{{ std imports
-//}}}
-//{{{ dep imports
-use topohedral_tracing::*;
-//}}}
-//--------------------------------------------------------------------------------------------------
+use crate::config::{validate_subdivisions, ConfigError, ConfigIssue, RuleAxis};
+use crate::fixed::d1::FixedQuad;
+use crate::{
+    AdaptiveResult, GaussRule, IntegrationError, Interval, OptionsError, RefinementDepth, Tolerance,
+};
 
-//{{{ struct: AdaptiveQuadOpts
-/// Configuration for one-dimensional adaptive quadrature.
-///
-/// The algorithm estimates each subinterval's error from the difference between the low- and
-/// high-order rules, then bisects subintervals whose estimate exceeds [`Self::tol`].
-#[derive(Debug)]
-pub struct AdaptiveQuadOpts {
-    /// Integration interval `(lower, upper)`.
-    pub bounds: (f64, f64),
-    /// Options for the low-order Gauss quadrature rule.
-    pub fixed_rule_low: fi::d1::FixedQuadOpts,
-    /// Options for the high-order Gauss quadrature rule.
-    pub fixed_rule_high: fi::d1::FixedQuadOpts,
-    /// Positive error tolerance applied independently to each subinterval.
-    pub tol: f64,
-    /// Reserved maximum refinement depth.
-    ///
-    /// Zero is valid. The current implementation does not yet use this value to limit refinement.
-    pub max_depth: usize,
-    /// Optional initial interior subdivision points.
-    ///
-    /// Provide finite points in strictly increasing order and do not include either bound. An
-    /// empty vector is equivalent to `None`.
-    pub init_subdiv: Option<Vec<f64>>,
+#[derive(Clone, Copy, Debug)]
+struct Region {
+    domain: Interval,
+    depth: usize,
+    high_estimate: f64,
+    error_estimate: f64,
 }
-//}}}
-//{{{ impl: OptionsStruct for AdaptiveQuadOpts
-impl OptionsVerify for AdaptiveQuadOpts {
-    fn is_ok(
+
+/// Consuming builder for one-dimensional adaptive quadrature.
+#[derive(Clone, Debug)]
+pub struct Builder {
+    domain: Interval,
+    low_rule: GaussRule,
+    high_rule: GaussRule,
+    tolerance: Tolerance,
+    max_depth: RefinementDepth,
+    subdivisions: Vec<f64>,
+}
+
+impl Builder {
+    /// Sets the maximum number of bisections permitted from each initial region.
+    pub const fn max_depth(
+        mut self,
+        max_depth: RefinementDepth,
+    ) -> Self {
+        self.max_depth = max_depth;
+        self
+    }
+
+    /// Replaces the initial interior subdivision points.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] unless the points are finite, strictly increasing, unique, and
+    /// strictly interior to the integration domain.
+    pub fn subdivisions<I>(
+        mut self,
+        points: I,
+    ) -> Result<Self, ConfigError>
+    where
+        I: IntoIterator<Item = f64>,
+    {
+        self.subdivisions = validate_subdivisions(self.domain, points)?;
+        Ok(self)
+    }
+
+    /// Validates the rule pair and constructs a reusable adaptive quadrature.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] unless the high rule's actual exactness exceeds the low rule's.
+    pub fn build(self) -> Result<AdaptiveQuadrature, ConfigError> {
+        let low_exactness = self.low_rule.exactness().value();
+        let high_exactness = self.high_rule.exactness().value();
+        if high_exactness <= low_exactness {
+            return Err(ConfigError::from_issues(vec![
+                ConfigIssue::NonIncreasingRuleExactness {
+                    axis: RuleAxis::OneDimensional,
+                    low: low_exactness,
+                    high: high_exactness,
+                },
+            ]));
+        }
+
+        Ok(AdaptiveQuadrature {
+            domain: self.domain,
+            low_rule: FixedQuad::builder(self.domain, self.low_rule).build(),
+            high_rule: FixedQuad::builder(self.domain, self.high_rule).build(),
+            tolerance: self.tolerance,
+            max_depth: self.max_depth,
+            subdivisions: self.subdivisions,
+        })
+    }
+}
+
+/// Reusable one-dimensional adaptive quadrature configuration.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AdaptiveQuadrature {
+    domain: Interval,
+    low_rule: FixedQuad,
+    high_rule: FixedQuad,
+    tolerance: Tolerance,
+    max_depth: RefinementDepth,
+    subdivisions: Vec<f64>,
+}
+
+impl AdaptiveQuadrature {
+    /// Starts a consuming builder with a default maximum depth of 32.
+    pub fn builder(
+        domain: Interval,
+        low_rule: GaussRule,
+        high_rule: GaussRule,
+        tolerance: Tolerance,
+    ) -> Builder {
+        Builder {
+            domain,
+            low_rule,
+            high_rule,
+            tolerance,
+            max_depth: RefinementDepth::default(),
+            subdivisions: Vec::new(),
+        }
+    }
+
+    /// Returns the complete integration domain.
+    pub const fn domain(&self) -> Interval {
+        self.domain
+    }
+
+    /// Returns the low-order Gaussian rule.
+    pub const fn low_rule(&self) -> &GaussRule {
+        self.low_rule.rule()
+    }
+
+    /// Returns the high-order Gaussian rule.
+    pub const fn high_rule(&self) -> &GaussRule {
+        self.high_rule.rule()
+    }
+
+    /// Returns the global convergence tolerance.
+    pub const fn tolerance(&self) -> Tolerance {
+        self.tolerance
+    }
+
+    /// Returns the maximum refinement depth.
+    pub const fn max_depth(&self) -> RefinementDepth {
+        self.max_depth
+    }
+
+    /// Returns the validated initial subdivision points.
+    pub fn subdivision_points(&self) -> &[f64] {
+        &self.subdivisions
+    }
+
+    /// Adaptively integrates `f` using a global error estimate.
+    ///
+    /// The returned integral is the sum of high-order estimates. On each iteration, the
+    /// splittable terminal region with the largest estimated error is bisected.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity,
+    /// [`IntegrationError::MaxDepthReached`] if the tolerance cannot be met within the configured
+    /// depth, or [`IntegrationError::NonProgressingInterval`] if a floating-point midpoint is not
+    /// strictly interior.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use topohedral_integrate::{
+    ///     AdaptiveQuadrature1D, GaussFamily, GaussRule, Interval, PolynomialDegree, Tolerance,
+    /// };
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let low = GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(3)?)?;
+    /// let high = GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(7)?)?;
+    /// let quadrature = AdaptiveQuadrature1D::builder(
+    ///     Interval::new(-1.0, 1.0)?,
+    ///     low,
+    ///     high,
+    ///     Tolerance::absolute(1e-10)?,
+    /// )
+    /// .build()?;
+    /// let result = quadrature.integrate(|x| x * x)?;
+    /// assert!((result.integral() - 2.0 / 3.0).abs() < 1e-12);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn integrate<F>(
         &self,
-        full: bool,
-    ) -> Result<(), OptionsError> {
-        let mut ok = true;
+        mut f: F,
+    ) -> Result<AdaptiveResult, IntegrationError>
+    where
+        F: FnMut(f64) -> f64,
+    {
+        let evaluations_per_region = self.low_rule.point_count() + self.high_rule.point_count();
+        let mut evaluation_count = 0;
+        let mut regions = Vec::with_capacity(self.subdivisions.len() + 1);
+        let mut lower = self.domain.lower();
 
-        let mut err = if full {
-            OptionsError::InvalidOptionsFull(String::new())
-        } else {
-            OptionsError::InvalidOptionsShort
-        };
+        for upper in self
+            .subdivisions
+            .iter()
+            .copied()
+            .chain(std::iter::once(self.domain.upper()))
+        {
+            let domain = Interval::new_unchecked(lower, upper);
+            regions.push(evaluate_region(
+                domain,
+                0,
+                &self.low_rule,
+                &self.high_rule,
+                &mut f,
+            )?);
+            evaluation_count += evaluations_per_region;
+            lower = upper;
+        }
 
-        let interval = Interval::new(self.bounds.0, self.bounds.1);
-        if interval.is_err() {
-            append_reason(
-                &mut err,
-                "Bounds invalid, bounds must be finite and strictly increasing",
+        let mut global_integral: f64 = regions.iter().map(|region| region.high_estimate).sum();
+        let mut global_error: f64 = regions.iter().map(|region| region.error_estimate).sum();
+
+        loop {
+            let result = AdaptiveResult::new(
+                global_integral,
+                global_error,
+                regions.len(),
+                evaluation_count,
             );
-            ok = false;
-        }
-
-        if self.fixed_rule_low.order >= self.fixed_rule_high.order {
-            append_reason(
-                &mut err,
-                "Gauss rule order mismatch, low order greater than high order",
-            );
-            ok = false;
-        }
-
-        if Tolerance::absolute(self.tol).is_err() {
-            append_reason(&mut err, "Tolerance invalid, must be positive");
-            ok = false;
-        }
-
-        if let (Ok(interval), Some(subdivisions)) = (interval, &self.init_subdiv) {
-            if validate_subdivisions(interval, subdivisions.iter().copied()).is_err() {
-                append_reason(
-                    &mut err,
-                    "Initial subdivisions invalid, must be finite, strictly increasing, and inside bounds",
-                );
-                ok = false;
+            if converged(&result, self.tolerance) {
+                return Ok(result);
             }
-        }
-        if ok {
-            Ok(())
-        } else {
-            Err(err)
+
+            let Some(index) = regions
+                .iter()
+                .enumerate()
+                .filter(|(_, region)| region.depth < self.max_depth.value())
+                .max_by(|(_, left), (_, right)| {
+                    left.error_estimate.total_cmp(&right.error_estimate)
+                })
+                .map(|(index, _)| index)
+            else {
+                return Err(IntegrationError::MaxDepthReached {
+                    partial_result: result,
+                });
+            };
+
+            let parent = regions[index];
+            let midpoint = midpoint(parent.domain);
+            if midpoint <= parent.domain.lower() || midpoint >= parent.domain.upper() {
+                return Err(IntegrationError::NonProgressingInterval {
+                    interval: parent.domain,
+                    partial_result: result,
+                });
+            }
+
+            let child_depth = parent.depth + 1;
+            let left = evaluate_region(
+                Interval::new_unchecked(parent.domain.lower(), midpoint),
+                child_depth,
+                &self.low_rule,
+                &self.high_rule,
+                &mut f,
+            )?;
+            let right = evaluate_region(
+                Interval::new_unchecked(midpoint, parent.domain.upper()),
+                child_depth,
+                &self.low_rule,
+                &self.high_rule,
+                &mut f,
+            )?;
+            evaluation_count += 2 * evaluations_per_region;
+            global_integral += left.high_estimate + right.high_estimate - parent.high_estimate;
+            global_error = (global_error - parent.error_estimate).max(0.0)
+                + left.error_estimate
+                + right.error_estimate;
+            regions.swap_remove(index);
+            regions.push(left);
+            regions.push(right);
         }
     }
 }
-//}}}
-//{{{ struct: AdaptiveQuadResult
-/// Value and diagnostics returned by one-dimensional adaptive quadrature.
-#[derive(Debug)]
-pub struct AdaptiveQuadResult {
-    /// Approximate integral, computed by summing the low-order-rule estimates.
-    pub integral: f64,
-    /// Sum of the absolute differences between low- and high-order estimates on terminal
-    /// subintervals.
-    pub error_estimate: f64,
-    /// Number of terminal subintervals.
-    pub num_subdiv: usize,
-    /// Number of function calls made by both rules.
-    pub num_fn_eval: usize,
+
+fn evaluate_region<F>(
+    domain: Interval,
+    depth: usize,
+    low_rule: &FixedQuad,
+    high_rule: &FixedQuad,
+    f: &mut F,
+) -> Result<Region, IntegrationError>
+where
+    F: FnMut(f64) -> f64,
+{
+    let low_estimate = low_rule.integrate_over(domain, &mut *f)?;
+    let high_estimate = high_rule.integrate_over(domain, &mut *f)?;
+    Ok(Region {
+        domain,
+        depth,
+        high_estimate,
+        error_estimate: (high_estimate - low_estimate).abs(),
+    })
 }
-//}}}
-//{{{ fun: error_estimate
-/// Computes the low-order integral estimate and the difference between the two rules.
-fn error_estimate<F: Fn(f64) -> f64>(
-    f: &F,
-    fixed_rule_low: &fi::d1::FixedQuad,
-    fixed_rule_high: &fi::d1::FixedQuad,
-    bounds: (f64, f64),
-) -> Result<(f64, f64), crate::IntegrationError> {
-    let domain = Interval::new_unchecked(bounds.0, bounds.1);
-    let integral_low = fixed_rule_low.integrate_over(domain, f)?;
-    let integral_high = fixed_rule_high.integrate_over(domain, f)?;
-    let err = (integral_high - integral_low).abs();
-    Ok((integral_low, err))
+
+fn converged(
+    result: &AdaptiveResult,
+    tolerance: Tolerance,
+) -> bool {
+    result.error_estimate()
+        <= tolerance.absolute_value() + tolerance.relative_value() * result.integral().abs()
 }
-//}}}
-//{{{ fun: adaptive_quad
-/// Adaptively integrates `f` over [`AdaptiveQuadOpts::bounds`].
+
+fn midpoint(interval: Interval) -> f64 {
+    let direct = interval.lower() + 0.5 * (interval.upper() - interval.lower());
+    if direct.is_finite() {
+        direct
+    } else {
+        0.5 * interval.lower() + 0.5 * interval.upper()
+    }
+}
+
+/// Builds a one-dimensional adaptive quadrature and integrates `f` once.
 ///
-/// Given a real-valued function of one variable, this function returns an approximation of its
-/// integral over the interval
-/// \\[
-///     I \approx  \int_{a}^{b} f(x) dx
-/// \\]
-///
-/// The tolerance is checked per subinterval, so the returned aggregate error estimate may exceed
-/// `opts.tol`. `max_depth` is retained but is not currently enforced.
+/// Use [`AdaptiveQuadrature::builder`] to configure the consuming `builder`. Construct an
+/// [`AdaptiveQuadrature`] directly when the same configuration will be reused.
 ///
 /// # Errors
 ///
-/// Returns [`OptionsError`] if `opts` is invalid.
-///
-/// # Returns
-///
-/// An [`AdaptiveQuadResult`] containing the approximation and diagnostics.
-///
-/// # Examples
-///
-/// ## Example 1
-/// In this example, we integrate a polynomial over `[-3, 10]` using Gauss-Legendre rules of
-/// order 10 and 30.
-/// ```
-///
-/// use topohedral_integrate::{
-///     adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuadOpts1D, GaussFamily,
-/// };
-///
-/// let f = |x: f64| 7.0 * x.powi(4) + 2.0 * x.powi(3) - 11.0 * x.powi(2) + 15.0 * x + 1.0;
-/// let opts = AdaptiveQuadOpts1D {
-///     bounds: (-3.0, 10.0),
-///     fixed_rule_low: FixedQuadOpts1D {
-///         gauss_type: GaussFamily::Legendre,
-///         order: 10,
-///         bounds: (-1.0, 1.0),
-///         subdiv: None,
-///     },
-///     fixed_rule_high: FixedQuadOpts1D {
-///         gauss_type: GaussFamily::Legendre,
-///         order: 30,
-///         bounds: (-1.0, 1.0),
-///         subdiv:None,
-///     },
-///     tol: 1e-5,
-///     max_depth: 1000,
-///     init_subdiv: None,
-///  };
-/// let res = adaptive_quad_1d(&f, opts)?;
-/// # Ok::<(), topohedral_integrate::OptionsError>(())
-/// ```
-#[allow(clippy::doc_overindented_list_items)]
-pub fn adaptive_quad<F: Fn(f64) -> f64>(
-    f: &F,
-    opts: AdaptiveQuadOpts,
-) -> Result<AdaptiveQuadResult, OptionsError> {
-    opts.is_ok(true)?;
-
-    //{{{ trace
-    info!("opts: {:?}", opts);
-    //}}}
-    //{{{ init
-    let AdaptiveQuadOpts {
-        bounds,
-        fixed_rule_low,
-        fixed_rule_high,
-        tol,
-        max_depth: _,
-        init_subdiv,
-    } = opts;
-    let fixed_rule_low = fi::d1::FixedQuad::new(fixed_rule_low)?;
-    let fixed_rule_high = fi::d1::FixedQuad::new(fixed_rule_high)?;
-
-    let non_val = -1.0f64;
-    let mut intervals = Vec::<[f64; 4]>::new();
-    match init_subdiv.as_deref().filter(|subdiv| !subdiv.is_empty()) {
-        Some(subdiv) => {
-            intervals.push([bounds.0, *subdiv.first().unwrap(), non_val, non_val]);
-            for i in 0..subdiv.len() - 1 {
-                intervals.push([subdiv[i], subdiv[i + 1], non_val, non_val]);
-            }
-            intervals.push([*subdiv.last().unwrap(), bounds.1, non_val, non_val]);
-        }
-        None => {
-            intervals.push([bounds.0, bounds.1, non_val, non_val]);
-        }
-    }
-    let mut has_converged = false;
-    let mut marked = Vec::<usize>::with_capacity(100);
-    let mut num_fn_eval = 0;
-    let nqp = fixed_rule_low.point_count() + fixed_rule_high.point_count();
-    //}}}
-    //{{{ com: perform adaptive quadrature
-    #[cfg(feature = "enable_trace")]
-    let mut iter = 0;
-    while !has_converged {
-        //{{{ trace
-        debug!(
-            "================================================== iter = {}",
-            iter
-        );
-        //}}}
-        //{{{ com: compute error estimates, mark intervals for splitting
-        //{{{ trace
-        debug!("Computing error estimates, marking intervals for splitting");
-        //}}}
-        for (i, interval) in intervals.iter_mut().enumerate() {
-            //{{{ trace
-            debug!("......................................");
-            debug!("i = {} interval = {:?}", i, interval);
-            //}}}
-            let bounds = (interval[0], interval[1]);
-            if interval[2] == non_val {
-                let (integral, err_est) =
-                    error_estimate(f, &fixed_rule_low, &fixed_rule_high, bounds)?;
-                //{{{ trace
-                debug!("integral = {}, err_est = {}", integral, err_est);
-                //}}}
-                num_fn_eval += nqp;
-                interval[2] = integral;
-                interval[3] = err_est;
-
-                if err_est > tol {
-                    //{{{ trace
-                    debug!("pushing i = {} to marked", i);
-                    //}}}
-                    marked.push(i);
-                }
-            }
-        }
-        //}}}
-        //{{{ com: split marked intervals
-        //{{{ trace
-        debug!("Splitting marked intervals");
-        //}}}
-        if marked.is_empty() {
-            //{{{ trace
-            debug!("marked is empty, convergence has been reached");
-            //}}}
-            has_converged = true;
-        } else {
-            for j in &marked {
-                //{{{ trace
-                debug!("........................");
-                debug!("j = {}", j);
-                //}}}
-                //{{{ com: find mid point
-                let interval = intervals[*j];
-                let old_low = interval[0];
-                let old_high = interval[1];
-                let mid = (old_high + old_low) / 2.0;
-                //{{{ trace
-                debug!("interval = {:?} mid = {}", interval, mid);
-                //}}}
-                //}}}
-                //{{{ com: set new bounds on left half
-                intervals[*j][1] = mid;
-                intervals[*j][2] = non_val;
-                intervals[*j][3] = non_val;
-                //}}}
-                //{{{ com: set new bounds on right half
-                let new_interval = [mid, old_high, non_val, non_val];
-                //{{{ trace
-                debug!("new_interval = {:?}", new_interval);
-                //}}}
-                intervals.push(new_interval);
-                //}}}
-            }
-            marked.clear();
-        }
-        //}}}
-        #[cfg(feature = "enable_trace")]
-        {
-            iter += 1;
-        }
-    }
-    //}}}
-    //{{{ com: sum up integrals and errors
-    let mut integral = 0.0;
-    let mut err_est = 0.0;
-    for interval in &intervals {
-        integral += interval[2];
-        err_est += interval[3];
-    }
-    //}}}
-    //{{{ ret
-    Ok(AdaptiveQuadResult {
-        integral,
-        error_estimate: err_est,
-        num_subdiv: intervals.len(),
-        num_fn_eval,
-    })
-    //}}}
+/// Returns [`OptionsError`] if the rule pair is invalid or adaptive integration fails.
+pub fn adaptive_quad<F>(
+    f: F,
+    builder: Builder,
+) -> Result<AdaptiveResult, OptionsError>
+where
+    F: FnMut(f64) -> f64,
+{
+    Ok(builder.build()?.integrate(f)?)
 }
-//}}}
-
-//-------------------------------------------------------------------------------------------------
-//{{{ mod: tests
-//{{{ note
-// The true integrals used in these tests were computed using the sympy package in the file
-// assets/adaptive-integrals-1d.py.
-//}}}
-
-#[cfg(test)]
-mod tests {}
-//}}}

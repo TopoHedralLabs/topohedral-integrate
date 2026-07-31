@@ -2,7 +2,7 @@
 
 use super::d1;
 use crate::common::{append_reason, OptionsError, OptionsVerify};
-use crate::config::{validate_subdivisions, ConfigError, Interval, PolynomialDegree, Rectangle};
+use crate::config::{validate_subdivisions, ConfigError, PolynomialDegree, Rectangle};
 use crate::gauss::{legendre_rules, lobatto_rules, GaussFamily, GaussRule, MAX_DEGREE};
 use crate::integration::{EvaluationPoint, IntegrationError};
 
@@ -358,11 +358,4 @@ where
     F: FnMut(f64, f64) -> f64,
 {
     Ok(FixedQuad::new(opts)?.integrate(&mut f)?)
-}
-
-pub(crate) fn rectangle_from_bounds(bounds: (f64, f64, f64, f64)) -> Rectangle {
-    Rectangle::new(
-        Interval::new_unchecked(bounds.0, bounds.1),
-        Interval::new_unchecked(bounds.2, bounds.3),
-    )
 }

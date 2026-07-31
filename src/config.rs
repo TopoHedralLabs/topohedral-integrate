@@ -12,6 +12,30 @@ const MAX_POLYNOMIAL_DEGREE: usize = 101;
 /// Largest point count representable by [`PointCount`].
 const MAX_POINT_COUNT: usize = 52;
 
+/// Coordinate whose Gaussian rule failed adaptive rule-pair validation.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum RuleAxis {
+    /// The single coordinate of a one-dimensional rule.
+    OneDimensional,
+    /// The `u` coordinate of a tensor-product rule.
+    U,
+    /// The `v` coordinate of a tensor-product rule.
+    V,
+}
+
+impl fmt::Display for RuleAxis {
+    fn fmt(
+        &self,
+        formatter: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        match self {
+            Self::OneDimensional => formatter.write_str("one-dimensional"),
+            Self::U => formatter.write_str("u-axis"),
+            Self::V => formatter.write_str("v-axis"),
+        }
+    }
+}
+
 /// A single invalid configuration value.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -52,6 +76,15 @@ pub enum ConfigIssue {
         absolute: f64,
         /// Rejected relative tolerance.
         relative: f64,
+    },
+    /// An adaptive high-order rule is not more exact than its low-order rule.
+    NonIncreasingRuleExactness {
+        /// Coordinate to which the rule pair applies.
+        axis: RuleAxis,
+        /// Actual exactness of the low-order rule.
+        low: usize,
+        /// Actual exactness of the high-order rule.
+        high: usize,
     },
     /// A subdivision coordinate is non-finite.
     NonFiniteSubdivision {
@@ -113,6 +146,10 @@ impl fmt::Display for ConfigIssue {
             Self::InvalidTolerance { absolute, relative } => write!(
                 formatter,
                 "tolerances must be finite and nonnegative with at least one positive component, received ({absolute}, {relative})"
+            ),
+            Self::NonIncreasingRuleExactness { axis, low, high } => write!(
+                formatter,
+                "{axis} high-rule exactness {high} must exceed low-rule exactness {low}"
             ),
             Self::NonFiniteSubdivision { index, value } => write!(
                 formatter,

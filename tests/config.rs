@@ -1,6 +1,8 @@
 use topohedral_integrate::{
-    AxisDepths, ConfigIssue, FixedQuadOpts1D, FixedQuadrature1D, GaussFamily, Interval, PointCount,
-    PolynomialDegree, Rectangle, RefinementDepth, Tolerance,
+    AdaptiveQuadrature1D, AdaptiveQuadrature2D, AdaptiveQuadratureBuilder1D,
+    AdaptiveQuadratureBuilder2D, AdaptiveResult, AxisDepths, ConfigIssue, FixedQuadOpts1D,
+    FixedQuadrature1D, GaussFamily, IntegrationError, Interval, PointCount, PolynomialDegree,
+    Rectangle, RefinementDepth, RuleAxis, Tolerance,
 };
 
 #[test]
@@ -162,4 +164,11 @@ fn validated_public_types_are_send_and_sync() {
     assert_send_sync::<Tolerance>();
     assert_send_sync::<RefinementDepth>();
     assert_send_sync::<AxisDepths>();
+    assert_send_sync::<RuleAxis>();
+    assert_send_sync::<AdaptiveResult>();
+    assert_send_sync::<IntegrationError>();
+    assert_send_sync::<AdaptiveQuadratureBuilder1D>();
+    assert_send_sync::<AdaptiveQuadratureBuilder2D>();
+    assert_send_sync::<AdaptiveQuadrature1D>();
+    assert_send_sync::<AdaptiveQuadrature2D>();
 }
