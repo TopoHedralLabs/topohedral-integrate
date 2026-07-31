@@ -86,6 +86,17 @@ pub enum ConfigIssue {
         /// Actual exactness of the high-order rule.
         high: usize,
     },
+    /// A requested Gaussian rule degree is not supported by the fixed-rule cache.
+    UnsupportedRuleDegree {
+        /// Coordinate to which the rule applies.
+        axis: RuleAxis,
+        /// Requested Gaussian family.
+        family: crate::GaussFamily,
+        /// Unsupported requested degree.
+        degree: usize,
+        /// Largest supported requested degree.
+        maximum: usize,
+    },
     /// A subdivision coordinate is non-finite.
     NonFiniteSubdivision {
         /// Position in the supplied iterator.
@@ -151,6 +162,15 @@ impl fmt::Display for ConfigIssue {
                 formatter,
                 "{axis} high-rule exactness {high} must exceed low-rule exactness {low}"
             ),
+            Self::UnsupportedRuleDegree {
+                axis,
+                family,
+                degree,
+                maximum,
+            } => write!(
+                formatter,
+                "{axis} {family} rule degree {degree} exceeds supported maximum {maximum}"
+            ),
             Self::NonFiniteSubdivision { index, value } => write!(
                 formatter,
                 "subdivision coordinate {index} must be finite, received {value}"
@@ -191,7 +211,6 @@ impl ConfigError {
     }
 
     pub(crate) fn from_issues(issues: Vec<ConfigIssue>) -> Self {
-        debug_assert!(!issues.is_empty());
         Self { issues }
     }
 

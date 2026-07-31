@@ -1,41 +1,12 @@
-//! Common definitions and utilities used throughout the crate.
-//!
-//--------------------------------------------------------------------------------------------------
+//! Error used by compatibility operations that combine configuration, rule generation, and
+//! integration.
 
-//{{{ crate imports
-//}}}
-//{{{ std imports
-//}}}
-//{{{ dep imports
 use crate::{config::ConfigError, gauss::RuleError, integration::IntegrationError};
 use thiserror::Error;
-//}}}
-//--------------------------------------------------------------------------------------------------
 
-/// Internal validation implemented by all options structs.
-pub(crate) trait OptionsVerify {
-    /// Checks if the options are valid.
-    ///
-    /// If the options are valid, returns `Ok(())`. Else, returns `Err(OptionsError)` with the
-    /// respective enum variant. If `full` is set to false then only the cheap version of the
-    /// check is performed, meaning it only says if it is valid or not with no diagnostic
-    /// information. If `full` is set to true then the full version of the check is performed,
-    /// meaning every error is reposred in the string contained by InvalidOptionsFull.
-    fn is_ok(
-        &self,
-        full: bool,
-    ) -> Result<(), OptionsError>;
-}
-
-/// Error returned when integration options fail validation.
-#[derive(Error, Debug)]
+/// Error returned by an operation that configures and performs integration in one call.
+#[derive(Clone, Debug, Error, PartialEq)]
 pub enum OptionsError {
-    /// The options are invalid; no individual reasons were collected.
-    #[error("The options are invalid.")]
-    InvalidOptionsShort,
-    /// The options are invalid, with one or more human-readable reasons.
-    #[error("The options are invalid with reasons:{0}")]
-    InvalidOptionsFull(String),
     /// A Gaussian rule could not be constructed.
     #[error(transparent)]
     Rule(#[from] RuleError),
@@ -46,40 +17,3 @@ pub enum OptionsError {
     #[error(transparent)]
     Integration(#[from] IntegrationError),
 }
-
-/// Appends the reason to the error.
-pub fn append_reason(
-    err: &mut OptionsError,
-    reason: &str,
-) {
-    match err {
-        OptionsError::InvalidOptionsShort => {}
-        OptionsError::InvalidOptionsFull(s) => {
-            s.push_str(format!("\n\t{reason}").as_str());
-        }
-        OptionsError::Rule(_) => {}
-        OptionsError::Config(_) | OptionsError::Integration(_) => {}
-    }
-}
-
-//-------------------------------------------------------------------------------------------------
-//{{{ mod: tests
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn test_error_append() {
-        let mut err = OptionsError::InvalidOptionsFull(String::new());
-        append_reason(&mut err, "reason 1");
-        append_reason(&mut err, "reason 2");
-
-        let err_str = format!("{err}");
-        assert_eq!(
-            err_str,
-            "The options are invalid with reasons:\n\treason 1\n\treason 2"
-        );
-    }
-}
-//}}}

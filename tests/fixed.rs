@@ -6,8 +6,8 @@ mod d1_tests {
     use serde::Deserialize;
     use std::fs;
     use topohedral_integrate::{
-        fixed_quad_1d as fixed_quad, FixedQuadOpts1D as FixedQuadOpts,
-        FixedQuadrature1D as FixedQuad, GaussFamily,
+        fixed_quad_1d as fixed_quad, ConfigIssue, FixedQuadOpts1D as FixedQuadOpts,
+        FixedQuadrature1D as FixedQuad, GaussFamily, OptionsError, RuleAxis,
     };
 
     const MAX_REL: f64 = 1e-14;
@@ -52,23 +52,33 @@ mod d1_tests {
     fn test_fixed_quad_opts() {
         let opts = FixedQuadOpts {
             gauss_type: GaussFamily::Legendre,
-            order: 3,
+            order: 101,
             bounds: (1.0, 0.0),
             subdiv: Some(Vec::<f64>::new()),
         };
 
-        let is_ok = FixedQuad::new(opts);
-        assert!(is_ok.is_err());
-        match is_ok {
-            Ok(_) => panic!("Expected error"),
-            Err(err) => {
-                assert_eq!(
-                    err.to_string(),
-                    "The options are invalid with reasons:\
-                \n\tBounds invalid, bounds must be finite and strictly increasing"
-                );
-            }
-        }
+        let OptionsError::Config(error) = FixedQuad::new(opts).unwrap_err() else {
+            panic!("expected structured configuration error");
+        };
+        assert!(matches!(
+            error.issues(),
+            [
+                ConfigIssue::UnsupportedRuleDegree {
+                    axis: RuleAxis::OneDimensional,
+                    family: GaussFamily::Legendre,
+                    degree: 101,
+                    maximum: 100,
+                },
+                ConfigIssue::InvalidIntervalOrder {
+                    lower: 1.0,
+                    upper: 0.0,
+                }
+            ]
+        ));
+        assert_eq!(
+            error.to_string(),
+            "invalid configuration; one-dimensional legendre rule degree 101 exceeds supported maximum 100; interval bounds must satisfy lower < upper, received (1, 0)"
+        );
     }
 
     #[test]
@@ -261,7 +271,7 @@ mod d2_tests {
 
     //{{{ collection: imports
     use approx::assert_relative_eq;
-    use topohedral_integrate::GaussFamily;
+    use topohedral_integrate::{ConfigIssue, GaussFamily, OptionsError, RuleAxis};
 
     mod d2 {
         pub use topohedral_integrate::{
@@ -316,23 +326,39 @@ mod d2_tests {
     fn test_fixed_quad_opts1() {
         let opts = d2::FixedQuadOpts {
             gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
-            order: (3, 3),
+            order: (101, 102),
             bounds: (2.0, 0.0, 2.0, 0.0),
             subdiv: Some((Vec::<f64>::new(), Vec::new())),
         };
 
-        let is_ok = d2::FixedQuad::new(opts);
-        assert!(is_ok.is_err());
-        match is_ok {
-            Ok(_) => panic!("Expected error"),
-            Err(err) => {
-                assert_eq!(
-                    err.to_string(),
-                    "The options are invalid with reasons:\
-                    \n\tBounds invalid, bounds must be finite and strictly increasing"
-                );
-            }
-        }
+        let OptionsError::Config(error) = d2::FixedQuad::new(opts).unwrap_err() else {
+            panic!("expected structured configuration error");
+        };
+        assert!(matches!(
+            error.issues(),
+            [
+                ConfigIssue::UnsupportedRuleDegree {
+                    axis: RuleAxis::U,
+                    family: GaussFamily::Legendre,
+                    degree: 101,
+                    maximum: 100,
+                },
+                ConfigIssue::UnsupportedRuleDegree {
+                    axis: RuleAxis::V,
+                    family: GaussFamily::Legendre,
+                    degree: 102,
+                    maximum: 100,
+                },
+                ConfigIssue::InvalidIntervalOrder {
+                    lower: 2.0,
+                    upper: 0.0,
+                },
+                ConfigIssue::InvalidIntervalOrder {
+                    lower: 2.0,
+                    upper: 0.0,
+                }
+            ]
+        ));
     }
 
     #[test]
@@ -344,18 +370,26 @@ mod d2_tests {
             subdiv: Some((vec![0.0], vec![0.0])),
         };
 
-        let is_ok = d2::FixedQuad::new(opts);
-        assert!(is_ok.is_err());
-        match is_ok {
-            Ok(_) => panic!("Expected error"),
-            Err(err) => {
-                assert_eq!(
-                    err.to_string(),
-                    "The options are invalid with reasons:\
-                    \n\tInitial subdivisions invalid, must be finite, strictly increasing, and inside bounds"
-                );
-            }
-        }
+        let OptionsError::Config(error) = d2::FixedQuad::new(opts).unwrap_err() else {
+            panic!("expected structured configuration error");
+        };
+        assert!(matches!(
+            error.issues(),
+            [
+                ConfigIssue::SubdivisionOutsideInterval {
+                    index: 0,
+                    value: 0.0,
+                    lower: 1.0,
+                    upper: 2.0,
+                },
+                ConfigIssue::SubdivisionOutsideInterval {
+                    index: 0,
+                    value: 0.0,
+                    lower: 1.0,
+                    upper: 2.0,
+                }
+            ]
+        ));
     }
 
     #[test]

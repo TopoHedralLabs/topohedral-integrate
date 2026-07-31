@@ -1,7 +1,7 @@
 use approx::assert_abs_diff_eq;
 use topohedral_integrate::{
     adaptive_quad_1d, adaptive_quad_2d, AdaptiveQuadrature1D, AdaptiveQuadrature2D, AxisDepths,
-    ConfigIssue, EvaluationPoint, GaussFamily, GaussRule, IntegrationError, Interval,
+    ConfigIssue, EvaluationPoint, GaussFamily, GaussRule, IntegrationError, Interval, OptionsError,
     PolynomialDegree, Rectangle, RefinementDepth, RuleAxis, TensorRule2D, Tolerance,
 };
 
@@ -51,6 +51,28 @@ fn one_dimensional_free_function_builds_and_integrates_once() {
     let result = adaptive_quad_1d(|x| x * x, builder).unwrap();
     assert_abs_diff_eq!(result.integral(), 2.0 / 3.0, epsilon = 1e-14);
     assert_eq!(result.evaluation_count(), 5);
+}
+
+#[test]
+fn one_dimensional_free_function_retains_structured_configuration_error() {
+    let builder = AdaptiveQuadrature1D::builder(
+        Interval::new(-1.0, 1.0).unwrap(),
+        rule(2),
+        rule(3),
+        Tolerance::absolute(1e-12).unwrap(),
+    );
+
+    let OptionsError::Config(error) = adaptive_quad_1d(|_| 0.0, builder).unwrap_err() else {
+        panic!("expected structured configuration error");
+    };
+    assert!(matches!(
+        error.issues(),
+        [ConfigIssue::NonIncreasingRuleExactness {
+            axis: RuleAxis::OneDimensional,
+            low: 3,
+            high: 3,
+        }]
+    ));
 }
 
 #[test]

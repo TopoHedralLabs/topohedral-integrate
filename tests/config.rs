@@ -65,6 +65,29 @@ fn interval_requires_finite_strictly_increasing_bounds() {
 }
 
 #[test]
+fn configuration_issues_retain_offending_values_and_use_concise_messages() {
+    let nonfinite = Interval::new(f64::NAN, 2.0).unwrap_err();
+    assert!(matches!(
+        nonfinite.issues(),
+        [ConfigIssue::NonFiniteInterval { lower, upper: 2.0 }] if lower.is_nan()
+    ));
+    assert_eq!(
+        nonfinite.to_string(),
+        "invalid configuration; interval bounds must be finite, received (NaN, 2)"
+    );
+
+    let tolerance = Tolerance::new(-1.0, f64::INFINITY).unwrap_err();
+    assert!(matches!(
+        tolerance.issues(),
+        [ConfigIssue::InvalidTolerance {
+            absolute: -1.0,
+            relative,
+        }] if relative.is_infinite()
+    ));
+    assert!(!tolerance.to_string().ends_with('.'));
+}
+
+#[test]
 fn rectangle_contains_validated_axis_intervals() {
     let u = Interval::new(-1.0, 1.0).unwrap();
     let v = Interval::new(2.0, 5.0).unwrap();

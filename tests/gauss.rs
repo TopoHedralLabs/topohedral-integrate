@@ -338,4 +338,15 @@ fn unsupported_degrees_and_point_counts_return_errors() {
             ..
         })
     ));
+
+    let degree_error = GaussRule::for_degree(GaussFamily::Legendre, degree(101)).unwrap_err();
+    assert_eq!(
+        degree_error.to_string(),
+        "polynomial degree 101 exceeds the supported maximum of 100"
+    );
+    let count_error = GaussRule::with_point_count(GaussFamily::Lobatto, count(1)).unwrap_err();
+    assert_eq!(
+        count_error.to_string(),
+        "lobatto point count 1 is outside supported range 2..=52"
+    );
 }

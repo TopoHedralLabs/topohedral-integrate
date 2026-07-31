@@ -34,7 +34,7 @@ absolute-plus-relative tolerance is met. `AdaptiveQuadrature1D` and
 integral and diagnostic information. The `adaptive_quad_1d` and
 `adaptive_quad_2d` helpers provide the corresponding one-shot interface.
 
-## Options validation
+## Structured validation
 
 Fixed quadrature starts from validated domain and Gaussian-rule values. Its
 builder validates subdivisions before constructing the reusable quadrature:

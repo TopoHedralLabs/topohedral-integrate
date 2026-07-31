@@ -45,8 +45,7 @@ assert_eq!(depths.v(), RefinementDepth::new(12));
 
 A refinement depth of zero means that adaptive integration evaluates its
 initial regions without refining them. `RefinementDepth::default()` and
-`AxisDepths::default()` use depth 32; the adaptive builders introduced in the
-adaptive-integration milestone will use those defaults.
+`AxisDepths::default()` use depth 32, as do the adaptive builders.
 
 ## Rule values
 
@@ -56,4 +55,13 @@ integers. A `PointCount` covers the combined range of both Gaussian families;
 the rule constructor performs the remaining family-specific check.
 
 Validation failures return `ConfigError`. Its `issues()` method exposes every
-structured `ConfigIssue` found during validation.
+structured `ConfigIssue` found during validation, including the rejected
+values. Multi-axis and compatibility-option validation retains every issue it
+can evaluate rather than collapsing them into one string. Error messages are
+concise lowercase summaries without trailing punctuation; callers should
+match `ConfigIssue` variants when they need programmatic diagnostics.
+
+One-shot compatibility operations can also generate a Gaussian rule or
+evaluate an integrand. Their `OptionsError` transparently wraps `ConfigError`,
+`RuleError`, or `IntegrationError`; validation failures are always carried by
+the `Config` variant without loss of structured issues.

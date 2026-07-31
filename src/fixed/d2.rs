@@ -1,8 +1,10 @@
 //! Fixed tensor-product quadrature for two-dimensional real-valued functions.
 
 use super::d1;
-use crate::common::{append_reason, OptionsError, OptionsVerify};
-use crate::config::{validate_subdivisions, ConfigError, PolynomialDegree, Rectangle};
+use crate::common::OptionsError;
+use crate::config::{
+    validate_subdivisions, ConfigError, ConfigIssue, PolynomialDegree, Rectangle, RuleAxis,
+};
 use crate::gauss::{legendre_rules, lobatto_rules, GaussFamily, GaussRule, MAX_DEGREE};
 use crate::integration::{EvaluationPoint, IntegrationError};
 
@@ -21,49 +23,51 @@ pub struct FixedQuadOpts {
     pub subdiv: Option<(Vec<f64>, Vec<f64>)>,
 }
 
-impl OptionsVerify for FixedQuadOpts {
-    fn is_ok(
-        &self,
-        full: bool,
-    ) -> Result<(), OptionsError> {
-        let mut ok = true;
-        let mut error = if full {
-            OptionsError::InvalidOptionsFull(String::new())
-        } else {
-            OptionsError::InvalidOptionsShort
-        };
-
-        if self.order.0 > MAX_DEGREE || self.order.1 > MAX_DEGREE {
-            ok = false;
-            append_reason(&mut error, "Quadrature order is not supported");
-        }
-
-        let rectangle =
-            Rectangle::from_bounds(self.bounds.0, self.bounds.1, self.bounds.2, self.bounds.3);
-        if rectangle.is_err() {
-            ok = false;
-            append_reason(
-                &mut error,
-                "Bounds invalid, bounds must be finite and strictly increasing",
-            );
-        }
-
-        if let (Ok(rectangle), Some((u, v))) = (rectangle, &self.subdiv) {
-            if validate_subdivisions(rectangle.u(), u.iter().copied()).is_err()
-                || validate_subdivisions(rectangle.v(), v.iter().copied()).is_err()
-            {
-                ok = false;
-                append_reason(
-                    &mut error,
-                    "Initial subdivisions invalid, must be finite, strictly increasing, and inside bounds",
-                );
+impl FixedQuadOpts {
+    fn validate(&self) -> Result<(Rectangle, Vec<f64>, Vec<f64>), ConfigError> {
+        let mut issues = Vec::new();
+        for (axis, family, degree) in [
+            (RuleAxis::U, self.gauss_type.0, self.order.0),
+            (RuleAxis::V, self.gauss_type.1, self.order.1),
+        ] {
+            if degree > MAX_DEGREE {
+                issues.push(ConfigIssue::UnsupportedRuleDegree {
+                    axis,
+                    family,
+                    degree,
+                    maximum: MAX_DEGREE,
+                });
             }
         }
 
-        if ok {
-            Ok(())
-        } else {
-            Err(error)
+        let domain = match Rectangle::from_bounds(
+            self.bounds.0,
+            self.bounds.1,
+            self.bounds.2,
+            self.bounds.3,
+        ) {
+            Ok(domain) => Some(domain),
+            Err(error) => {
+                issues.extend_from_slice(error.issues());
+                None
+            }
+        };
+
+        let (mut u_subdivisions, mut v_subdivisions) = (Vec::new(), Vec::new());
+        if let (Some(domain), Some((u, v))) = (domain, &self.subdiv) {
+            match validate_subdivisions(domain.u(), u.iter().copied()) {
+                Ok(points) => u_subdivisions = points,
+                Err(error) => issues.extend_from_slice(error.issues()),
+            }
+            match validate_subdivisions(domain.v(), v.iter().copied()) {
+                Ok(points) => v_subdivisions = points,
+                Err(error) => issues.extend_from_slice(error.issues()),
+            }
+        }
+
+        match domain {
+            Some(domain) if issues.is_empty() => Ok((domain, u_subdivisions, v_subdivisions)),
+            _ => Err(ConfigError::from_issues(issues)),
         }
     }
 }
@@ -219,17 +223,12 @@ impl FixedQuad {
 
     /// Builds a reusable fixed quadrature from the legacy options structure.
     pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
-        opts.is_ok(true)?;
-        let domain =
-            Rectangle::from_bounds(opts.bounds.0, opts.bounds.1, opts.bounds.2, opts.bounds.3)?;
+        let (domain, u_subdivisions, v_subdivisions) = opts.validate()?;
         let u_rule = cached_rule(opts.gauss_type.0, opts.order.0)?;
         let v_rule = cached_rule(opts.gauss_type.1, opts.order.1)?;
-        let mut builder = Self::builder(domain, TensorRule::new(u_rule, v_rule));
-
-        if let Some((u, v)) = opts.subdiv {
-            builder = builder.subdivisions(u, v)?;
-        }
-        Ok(builder.build())
+        Ok(Self::builder(domain, TensorRule::new(u_rule, v_rule))
+            .subdivisions(u_subdivisions, v_subdivisions)?
+            .build())
     }
 
     /// Returns the configured rectangular domain.

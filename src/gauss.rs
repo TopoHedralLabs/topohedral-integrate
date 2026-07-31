@@ -8,6 +8,7 @@
 use crate::config::{PointCount, PolynomialDegree};
 //}}}
 //{{{ std imports
+use std::fmt;
 use std::sync::OnceLock;
 //}}}
 //{{{ dep imports
@@ -130,6 +131,18 @@ impl GaussFamily {
         self.point_count_for_degree(MAX_DEGREE)
     }
 }
+
+impl fmt::Display for GaussFamily {
+    fn fmt(
+        &self,
+        formatter: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        match self {
+            Self::Legendre => formatter.write_str("legendre"),
+            Self::Lobatto => formatter.write_str("lobatto"),
+        }
+    }
+}
 //}}}
 //{{{ enum: RuleError
 /// An error encountered while constructing or retrieving a Gaussian rule.
@@ -144,9 +157,7 @@ pub enum RuleError {
         maximum: usize,
     },
     /// The requested point count is outside the supported range.
-    #[error(
-        "{family:?} point count {point_count} is outside the supported range {minimum}..={maximum}"
-    )]
+    #[error("{family} point count {point_count} is outside supported range {minimum}..={maximum}")]
     PointCountOutOfRange {
         /// Quadrature family for which a rule was requested.
         family: GaussFamily,
@@ -158,7 +169,7 @@ pub enum RuleError {
         maximum: usize,
     },
     /// The eigendecomposition backend could not generate a rule.
-    #[error("failed to generate a {family:?} rule with {point_count} points: {message}")]
+    #[error("failed to generate a {family} rule with {point_count} points: {message}")]
     GenerationFailed {
         /// Quadrature family being generated.
         family: GaussFamily,
@@ -318,17 +329,31 @@ impl GaussRule {
         family: GaussFamily,
         points: Vec<f64>,
         weights: Vec<f64>,
-    ) -> Self {
-        debug_assert_eq!(points.len(), weights.len());
+    ) -> Result<Self, RuleError> {
+        if points.len() != weights.len() {
+            return Err(RuleError::GenerationFailed {
+                family,
+                point_count: points.len(),
+                message: format!(
+                    "backend produced {} points but {} weights",
+                    points.len(),
+                    weights.len()
+                ),
+            });
+        }
         let exactness = family
             .exactness_for_point_count(points.len())
-            .expect("validated point counts have representable exactness");
-        Self {
+            .ok_or_else(|| RuleError::GenerationFailed {
+                family,
+                point_count: points.len(),
+                message: "backend produced an invalid point count".to_owned(),
+            })?;
+        Ok(Self {
             family,
             exactness: PolynomialDegree::new_unchecked(exactness),
             points,
             weights,
-        }
+        })
     }
 
     /// Constructs the smallest quadrature rule with at least `degree` polynomial exactness.
@@ -467,7 +492,7 @@ fn build_gauss_rule(
         }
     };
 
-    Ok(GaussRule::from_points_weights(family, points, weights))
+    GaussRule::from_points_weights(family, points, weights)
 }
 //}}}
 //{{{ fun: golub_welsch
@@ -563,7 +588,13 @@ fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
     weight_integral: f64,
     recurrence_fcn: F,
 ) -> Result<(Vec<f64>, Vec<f64>), RuleError> {
-    debug_assert!(matrix_size > 0);
+    if matrix_size == 0 {
+        return Err(RuleError::GenerationFailed {
+            family,
+            point_count: rule_point_count,
+            message: "eigendecomposition matrix must be nonempty".to_owned(),
+        });
+    }
 
     let mut tmat = DMatrix::<f64>::zeros(matrix_size, matrix_size);
 
@@ -638,8 +669,6 @@ fn legendre(
     n: usize,
     x: f64,
 ) -> f64 {
-    debug_assert!((-1.0..=1.0).contains(&x));
-
     let (mut leg_n, mut leg_1, mut leg_2) = (1.0f64, 1.0f64, 0.0f64);
     for i in 0..n {
         let ii = i as f64;
@@ -656,5 +685,35 @@ fn legendre(
 //-------------------------------------------------------------------------------------------------
 //{{{ mod: tests
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_backend_output_is_a_generation_error() {
+        let error = GaussRule::from_points_weights(GaussFamily::Legendre, vec![0.0], Vec::new())
+            .unwrap_err();
+        assert_eq!(
+            error,
+            RuleError::GenerationFailed {
+                family: GaussFamily::Legendre,
+                point_count: 1,
+                message: "backend produced 1 points but 0 weights".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_eigendecomposition_size_is_a_generation_error() {
+        let error =
+            golub_welsch(GaussFamily::Legendre, 1, 0, 2.0, legendre_recursion_coeffs).unwrap_err();
+        assert_eq!(
+            error,
+            RuleError::GenerationFailed {
+                family: GaussFamily::Legendre,
+                point_count: 1,
+                message: "eigendecomposition matrix must be nonempty".to_owned(),
+            }
+        );
+    }
+}
 //}}}

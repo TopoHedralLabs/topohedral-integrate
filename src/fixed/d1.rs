@@ -1,7 +1,9 @@
 //! Fixed quadrature for one-dimensional real-valued functions.
 
-use crate::common::{append_reason, OptionsError, OptionsVerify};
-use crate::config::{validate_subdivisions, Interval, PolynomialDegree};
+use crate::common::OptionsError;
+use crate::config::{
+    validate_subdivisions, ConfigError, ConfigIssue, Interval, PolynomialDegree, RuleAxis,
+};
 use crate::gauss::{legendre_rules, lobatto_rules, GaussFamily, GaussRule, MAX_DEGREE};
 use crate::integration::{EvaluationPoint, IntegrationError};
 
@@ -20,46 +22,37 @@ pub struct FixedQuadOpts {
     pub subdiv: Option<Vec<f64>>,
 }
 
-impl OptionsVerify for FixedQuadOpts {
-    fn is_ok(
-        &self,
-        full: bool,
-    ) -> Result<(), OptionsError> {
-        let mut ok = true;
-        let mut error = if full {
-            OptionsError::InvalidOptionsFull(String::new())
-        } else {
-            OptionsError::InvalidOptionsShort
+impl FixedQuadOpts {
+    fn validate(&self) -> Result<(Interval, Vec<f64>), ConfigError> {
+        let mut issues = Vec::new();
+        if self.order > MAX_DEGREE {
+            issues.push(ConfigIssue::UnsupportedRuleDegree {
+                axis: RuleAxis::OneDimensional,
+                family: self.gauss_type,
+                degree: self.order,
+                maximum: MAX_DEGREE,
+            });
+        }
+
+        let domain = match Interval::new(self.bounds.0, self.bounds.1) {
+            Ok(domain) => Some(domain),
+            Err(error) => {
+                issues.extend_from_slice(error.issues());
+                None
+            }
         };
 
-        if self.order > MAX_DEGREE {
-            ok = false;
-            append_reason(&mut error, "Quadrature order is not supported");
-        }
-
-        let interval = Interval::new(self.bounds.0, self.bounds.1);
-        if interval.is_err() {
-            ok = false;
-            append_reason(
-                &mut error,
-                "Bounds invalid, bounds must be finite and strictly increasing",
-            );
-        }
-
-        if let (Ok(interval), Some(subdivisions)) = (interval, &self.subdiv) {
-            if validate_subdivisions(interval, subdivisions.iter().copied()).is_err() {
-                ok = false;
-                append_reason(
-                    &mut error,
-                    "Initial subdivisions invalid, must be finite, strictly increasing, and inside bounds",
-                );
+        let mut subdivisions = Vec::new();
+        if let (Some(domain), Some(points)) = (domain, &self.subdiv) {
+            match validate_subdivisions(domain, points.iter().copied()) {
+                Ok(points) => subdivisions = points,
+                Err(error) => issues.extend_from_slice(error.issues()),
             }
         }
 
-        if ok {
-            Ok(())
-        } else {
-            Err(error)
+        match domain {
+            Some(domain) if issues.is_empty() => Ok((domain, subdivisions)),
+            _ => Err(ConfigError::from_issues(issues)),
         }
     }
 }
@@ -150,20 +143,16 @@ impl FixedQuad {
 
     /// Builds a reusable fixed quadrature from the legacy options structure.
     pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
-        opts.is_ok(true)?;
-
-        let domain = Interval::new(opts.bounds.0, opts.bounds.1)?;
+        let (domain, subdivisions) = opts.validate()?;
         let degree = PolynomialDegree::new_unchecked(opts.order);
         let rule = match opts.gauss_type {
             GaussFamily::Legendre => legendre_rules()?.get_for_degree(degree)?.clone(),
             GaussFamily::Lobatto => lobatto_rules()?.get_for_degree(degree)?.clone(),
         };
 
-        let mut builder = Self::builder(domain, rule);
-        if let Some(subdivisions) = opts.subdiv {
-            builder = builder.subdivisions(subdivisions)?;
-        }
-        Ok(builder.build())
+        Ok(Self::builder(domain, rule)
+            .subdivisions(subdivisions)?
+            .build())
     }
 
     /// Returns the configured integration domain.
