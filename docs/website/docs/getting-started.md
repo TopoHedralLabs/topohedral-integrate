@@ -18,16 +18,18 @@ The following example integrates \(x^2\) over \([-1, 1]\) with a reusable
 five-point Gauss-Legendre rule:
 
 ```rust
-use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussFamily};
-
-let opts = FixedQuadOpts1D {
-    gauss_type: GaussFamily::Legendre,
-    order: 9,
-    bounds: (-1.0, 1.0),
-    subdiv: None,
+use topohedral_integrate::{
+    FixedQuadrature1D, GaussFamily, GaussRule, Interval, PolynomialDegree,
 };
-let rule = FixedQuad1D::new(opts).expect("valid quadrature options");
-let integral = rule.integrate(&|x: f64| x.powi(2), None);
+
+let domain = Interval::new(-1.0, 1.0).expect("valid interval");
+let degree = PolynomialDegree::new(9).expect("supported degree");
+let rule = GaussRule::for_degree(GaussFamily::Legendre, degree)
+    .expect("rule generation succeeds");
+let quadrature = FixedQuadrature1D::builder(domain, rule).build();
+let integral = quadrature
+    .integrate(|x: f64| x.powi(2))
+    .expect("finite integrand");
 
 assert!((integral - 2.0 / 3.0).abs() < 1e-12);
 ```

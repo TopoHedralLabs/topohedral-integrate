@@ -1,21 +1,14 @@
-//! This module contains the implementation of fixed quadrature rules for two-dimensional
-//! real-valued functions.
+//! Fixed tensor-product quadrature for two-dimensional real-valued functions.
 
-//{{{ crate imports
+use super::d1;
 use crate::common::{append_reason, OptionsError, OptionsVerify};
-use crate::config::{validate_subdivisions, Rectangle};
-use crate::gauss::GaussFamily;
-use crate::gauss::MAX_DEGREE;
-//}}}
-//{{{ std imports
-//}}}
-//{{{ dep imports
-//}}}
-//--------------------------------------------------------------------------------------------------
-use super::*;
+use crate::config::{validate_subdivisions, ConfigError, Interval, PolynomialDegree, Rectangle};
+use crate::gauss::{legendre_rules, lobatto_rules, GaussFamily, GaussRule, MAX_DEGREE};
+use crate::integration::{EvaluationPoint, IntegrationError};
 
-//{{{ struct: FixedQuadOpts
-/// Configuration for two-dimensional fixed tensor-product quadrature.
+/// Legacy configuration for two-dimensional fixed quadrature.
+///
+/// New code should prefer [`crate::FixedQuadrature2D::builder`].
 #[derive(Debug)]
 pub struct FixedQuadOpts {
     /// Gauss quadrature families in `(u, v)` order.
@@ -25,187 +18,351 @@ pub struct FixedQuadOpts {
     /// Rectangular integration bounds `(u_min, u_max, v_min, v_max)`.
     pub bounds: (f64, f64, f64, f64),
     /// Optional interior subdivision coordinates in `(u, v)` order.
-    ///
-    /// Each coordinate list must contain finite, strictly increasing points that are strictly
-    /// interior to their axis bounds. Empty vectors mean no subdivision on that axis.
     pub subdiv: Option<(Vec<f64>, Vec<f64>)>,
 }
-//}}}
-//{{{ impl: OptionsStruct for FixedQuadOpts
+
 impl OptionsVerify for FixedQuadOpts {
     fn is_ok(
         &self,
         full: bool,
     ) -> Result<(), OptionsError> {
         let mut ok = true;
-        let mut err = if full {
+        let mut error = if full {
             OptionsError::InvalidOptionsFull(String::new())
         } else {
             OptionsError::InvalidOptionsShort
         };
 
-        let valid_u_order = self.order.0 <= MAX_DEGREE;
-        let valid_v_order = self.order.1 <= MAX_DEGREE;
-        if !valid_u_order || !valid_v_order {
+        if self.order.0 > MAX_DEGREE || self.order.1 > MAX_DEGREE {
             ok = false;
-            append_reason(&mut err, "Quadrature order is not supported");
+            append_reason(&mut error, "Quadrature order is not supported");
         }
 
         let rectangle =
             Rectangle::from_bounds(self.bounds.0, self.bounds.1, self.bounds.2, self.bounds.3);
         if rectangle.is_err() {
+            ok = false;
             append_reason(
-                &mut err,
+                &mut error,
                 "Bounds invalid, bounds must be finite and strictly increasing",
             );
-            ok = false;
         }
 
-        if let (Ok(rectangle), Some(subdivisions)) = (rectangle, &self.subdiv) {
-            if validate_subdivisions(rectangle.u(), subdivisions.0.iter().copied()).is_err()
-                || validate_subdivisions(rectangle.v(), subdivisions.1.iter().copied()).is_err()
+        if let (Ok(rectangle), Some((u, v))) = (rectangle, &self.subdiv) {
+            if validate_subdivisions(rectangle.u(), u.iter().copied()).is_err()
+                || validate_subdivisions(rectangle.v(), v.iter().copied()).is_err()
             {
+                ok = false;
                 append_reason(
-                    &mut err,
+                    &mut error,
                     "Initial subdivisions invalid, must be finite, strictly increasing, and inside bounds",
                 );
-                ok = false;
             }
         }
 
         if ok {
             Ok(())
         } else {
-            Err(err)
+            Err(error)
         }
     }
 }
-//}}}
-//{{{ struct: FixedQuad
-/// A reusable two-dimensional fixed tensor-product quadrature rule.
-#[derive(Debug)]
-pub struct FixedQuad {
-    /// The set of points and weights for the fixed quadrature rule. Point `i` and weight `i`
-    /// are stored in `points_weights[3*i..3*i+1]`, and `points_weights[3*i+2]`, respectively.
-    pub points_weights: Vec<f64>,
-    /// The options used to construct the rule.
-    pub opts: FixedQuadOpts,
+
+/// A tensor product of independent Gaussian rules on the `u` and `v` axes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TensorRule {
+    u: GaussRule,
+    v: GaussRule,
 }
-//}}}
-//{{{ impl: FixedQuad
-impl FixedQuad {
-    //{{{ fun: new
-    /// Builds a reusable tensor-product quadrature rule from `opts`.
+
+impl TensorRule {
+    /// Constructs a tensor-product rule.
+    pub const fn new(
+        u: GaussRule,
+        v: GaussRule,
+    ) -> Self {
+        Self { u, v }
+    }
+
+    /// Returns the `u`-axis Gaussian rule.
+    pub const fn u(&self) -> &GaussRule {
+        &self.u
+    }
+
+    /// Returns the `v`-axis Gaussian rule.
+    pub const fn v(&self) -> &GaussRule {
+        &self.v
+    }
+}
+
+/// A mapped point and weight for two-dimensional fixed quadrature.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Node {
+    u: f64,
+    v: f64,
+    weight: f64,
+}
+
+impl Node {
+    /// Returns the `u` coordinate.
+    #[inline]
+    pub const fn u(&self) -> f64 {
+        self.u
+    }
+
+    /// Returns the `v` coordinate.
+    #[inline]
+    pub const fn v(&self) -> f64 {
+        self.v
+    }
+
+    /// Returns the tensor-product weight.
+    #[inline]
+    pub const fn weight(&self) -> f64 {
+        self.weight
+    }
+}
+
+/// Consuming builder for a two-dimensional fixed quadrature.
+#[derive(Clone, Debug)]
+pub struct Builder {
+    domain: Rectangle,
+    rule: TensorRule,
+    u_subdivisions: Vec<f64>,
+    v_subdivisions: Vec<f64>,
+}
+
+impl Builder {
+    /// Replaces the interior subdivision coordinates on both axes.
     ///
-    /// Returns [`OptionsError`] when the options are invalid or a cached Gaussian rule could not be
-    /// initialized.
+    /// Empty input on either axis means no subdivisions on that axis.
+    ///
+    /// # Errors
+    ///
+    /// Returns all detected subdivision validation issues.
+    pub fn subdivisions<U, V>(
+        mut self,
+        u_points: U,
+        v_points: V,
+    ) -> Result<Self, ConfigError>
+    where
+        U: IntoIterator<Item = f64>,
+        V: IntoIterator<Item = f64>,
+    {
+        let u = validate_subdivisions(self.domain.u(), u_points);
+        let v = validate_subdivisions(self.domain.v(), v_points);
+        match (u, v) {
+            (Ok(u), Ok(v)) => {
+                self.u_subdivisions = u;
+                self.v_subdivisions = v;
+                Ok(self)
+            }
+            (Err(u), Err(v)) => {
+                let mut issues = u.issues().to_vec();
+                issues.extend_from_slice(v.issues());
+                Err(ConfigError::from_issues(issues))
+            }
+            (Err(error), _) | (_, Err(error)) => Err(error),
+        }
+    }
+
+    /// Maps the tensor rule onto the configured rectangle and subdivisions.
+    pub fn build(self) -> FixedQuad {
+        let u_nodes = d1::mapped_nodes(self.domain.u(), self.rule.u(), &self.u_subdivisions);
+        let v_nodes = d1::mapped_nodes(self.domain.v(), self.rule.v(), &self.v_subdivisions);
+        let mut nodes = Vec::with_capacity(u_nodes.len() * v_nodes.len());
+
+        for u in &u_nodes {
+            for v in &v_nodes {
+                nodes.push(Node {
+                    u: u.point(),
+                    v: v.point(),
+                    weight: u.weight() * v.weight(),
+                });
+            }
+        }
+
+        FixedQuad {
+            domain: self.domain,
+            rule: self.rule,
+            u_subdivisions: self.u_subdivisions,
+            v_subdivisions: self.v_subdivisions,
+            nodes: nodes.into_boxed_slice(),
+        }
+    }
+}
+
+/// A reusable two-dimensional fixed tensor-product quadrature.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FixedQuad {
+    domain: Rectangle,
+    rule: TensorRule,
+    u_subdivisions: Vec<f64>,
+    v_subdivisions: Vec<f64>,
+    nodes: Box<[Node]>,
+}
+
+impl FixedQuad {
+    /// Starts a consuming builder for `domain` and `rule`.
+    pub fn builder(
+        domain: Rectangle,
+        rule: TensorRule,
+    ) -> Builder {
+        Builder {
+            domain,
+            rule,
+            u_subdivisions: Vec::new(),
+            v_subdivisions: Vec::new(),
+        }
+    }
+
+    /// Builds a reusable fixed quadrature from the legacy options structure.
     pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
         opts.is_ok(true)?;
+        let domain =
+            Rectangle::from_bounds(opts.bounds.0, opts.bounds.1, opts.bounds.2, opts.bounds.3)?;
+        let u_rule = cached_rule(opts.gauss_type.0, opts.order.0)?;
+        let v_rule = cached_rule(opts.gauss_type.1, opts.order.1)?;
+        let mut builder = Self::builder(domain, TensorRule::new(u_rule, v_rule));
 
-        let (u_gauss_type, v_gauss_type) = opts.gauss_type;
-        let (u_order, v_order) = opts.order;
-        let (umin, umax, vmin, vmax) = opts.bounds;
-        let u_subdiv = opts
-            .subdiv
-            .as_ref()
-            .and_then(|subdiv| (!subdiv.0.is_empty()).then_some(subdiv.0.as_slice()));
-        let v_subdiv = opts
-            .subdiv
-            .as_ref()
-            .and_then(|subdiv| (!subdiv.1.is_empty()).then_some(subdiv.1.as_slice()));
-
-        let fixed_rule_u = d1::build_points_weights(u_gauss_type, u_order, (umin, umax), u_subdiv)?;
-
-        let fixed_rule_v = d1::build_points_weights(v_gauss_type, v_order, (vmin, vmax), v_subdiv)?;
-
-        let nqp_u = fixed_rule_u.len() / 2;
-        let nqp_v = fixed_rule_v.len() / 2;
-        let nqp = nqp_u * nqp_v;
-        let mut points_weights = Vec::<f64>::with_capacity(3 * nqp);
-
-        for i in 0..nqp_u {
-            let xi = fixed_rule_u[2 * i];
-            let wi = fixed_rule_u[2 * i + 1];
-
-            for j in 0..nqp_v {
-                let xj = fixed_rule_v[2 * j];
-                let wj = fixed_rule_v[2 * j + 1];
-
-                points_weights.push(xi);
-                points_weights.push(xj);
-                points_weights.push(wi * wj);
-            }
+        if let Some((u, v)) = opts.subdiv {
+            builder = builder.subdivisions(u, v)?;
         }
-
-        Ok(Self {
-            points_weights,
-            opts,
-        })
+        Ok(builder.build())
     }
-    //}}}
-    //{{{ fun: integrate
-    /// Integrates `f` using this rule.
+
+    /// Returns the configured rectangular domain.
+    pub const fn domain(&self) -> Rectangle {
+        self.domain
+    }
+
+    /// Returns the tensor-product reference rule.
+    pub const fn rule(&self) -> &TensorRule {
+        &self.rule
+    }
+
+    /// Returns the validated `u`-axis subdivision coordinates.
+    pub fn u_subdivision_points(&self) -> &[f64] {
+        &self.u_subdivisions
+    }
+
+    /// Returns the validated `v`-axis subdivision coordinates.
+    pub fn v_subdivision_points(&self) -> &[f64] {
+        &self.v_subdivisions
+    }
+
+    /// Returns all mapped tensor-product nodes.
+    pub fn nodes(&self) -> &[Node] {
+        &self.nodes
+    }
+
+    /// Iterates over all mapped tensor-product nodes.
+    pub fn iter(&self) -> std::slice::Iter<'_, Node> {
+        self.nodes.iter()
+    }
+
+    /// Returns the total number of mapped tensor-product points.
+    pub fn point_count(&self) -> usize {
+        self.nodes.len()
+    }
+
+    /// Integrates over the configured rectangle.
     ///
-    /// When `bounds` is `Some((u_min, u_max, v_min, v_max))`, the stored rule is linearly
-    /// remapped to that rectangle. When it is `None`, the configured bounds are used.
-    pub fn integrate<F: Fn(f64, f64) -> f64>(
+    /// # Errors
+    ///
+    /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+    pub fn integrate<F>(
         &self,
-        f: &F,
-        bounds: Option<(f64, f64, f64, f64)>,
-    ) -> f64 {
+        mut f: F,
+    ) -> Result<f64, IntegrationError>
+    where
+        F: FnMut(f64, f64) -> f64,
+    {
+        let mut integral = 0.0;
+        for node in &self.nodes {
+            let value = f(node.u, node.v);
+            if !value.is_finite() {
+                return Err(IntegrationError::NonFiniteIntegrand {
+                    point: EvaluationPoint::TwoDimensional {
+                        u: node.u,
+                        v: node.v,
+                    },
+                    value,
+                });
+            }
+            integral += node.weight * value;
+        }
+        Ok(integral)
+    }
+
+    /// Integrates over another rectangle by proportionally remapping every node and subdivision.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+    pub fn integrate_over<F>(
+        &self,
+        domain: Rectangle,
+        mut f: F,
+    ) -> Result<f64, IntegrationError>
+    where
+        F: FnMut(f64, f64) -> f64,
+    {
+        let u_scale = domain.u().length() / self.domain.u().length();
+        let v_scale = domain.v().length() / self.domain.v().length();
         let mut integral = 0.0;
 
-        match bounds {
-            Some(bounds) => {
-                let (a, b, c, d) = bounds;
-                let (umin, umax, vmin, vmax) = self.opts.bounds;
-                let jac_u = (b - a) / (umax - umin);
-                let jac_v = (d - c) / (vmax - vmin);
-
-                for i in 0..self.points_weights.len() / 3 {
-                    let xi1 = a + jac_u * (self.points_weights[3 * i] - umin);
-                    let xi2 = c + jac_v * (self.points_weights[3 * i + 1] - vmin);
-                    let wi = self.points_weights[3 * i + 2];
-                    integral += f(xi1, xi2) * wi;
-                }
-                integral *= jac_u * jac_v;
+        for node in &self.nodes {
+            let u = domain.u().lower() + u_scale * (node.u - self.domain.u().lower());
+            let v = domain.v().lower() + v_scale * (node.v - self.domain.v().lower());
+            let value = f(u, v);
+            if !value.is_finite() {
+                return Err(IntegrationError::NonFiniteIntegrand {
+                    point: EvaluationPoint::TwoDimensional { u, v },
+                    value,
+                });
             }
-            None => {
-                for i in 0..self.points_weights.len() / 3 {
-                    let xi1 = self.points_weights[3 * i];
-                    let xi2 = self.points_weights[3 * i + 1];
-                    let wi = self.points_weights[3 * i + 2];
-                    integral += f(xi1, xi2) * wi;
-                }
-            }
+            integral += u_scale * v_scale * node.weight * value;
         }
-        integral
+        Ok(integral)
     }
-    //}}}
-    //{{{ fun: nqp
-    /// Returns the total number of tensor-product quadrature points.
-    pub fn nqp(&self) -> usize {
-        self.points_weights.len() / 3
-    }
-    //}}}
 }
-//}}}
-//{{{ fun: fixed_quad
-/// Integrates `f` over `opts.bounds` using a newly constructed tensor-product rule.
-///
-/// Returns [`OptionsError`] when `opts` is invalid or a cached Gaussian rule could not be
-/// initialized.
-pub fn fixed_quad<F: Fn(f64, f64) -> f64>(
-    f: &F,
-    opts: FixedQuadOpts,
-) -> Result<f64, OptionsError> {
-    let quad_rule = FixedQuad::new(opts)?;
-    Ok(quad_rule.integrate(f, None))
-}
-//}}}
 
-//-------------------------------------------------------------------------------------------------
-//{{{ mod: tests
-#[cfg(test)]
-mod tests {}
-//}}}
+impl<'a> IntoIterator for &'a FixedQuad {
+    type Item = &'a Node;
+    type IntoIter = std::slice::Iter<'a, Node>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+fn cached_rule(
+    family: GaussFamily,
+    degree: usize,
+) -> Result<GaussRule, crate::RuleError> {
+    let degree = PolynomialDegree::new_unchecked(degree);
+    match family {
+        GaussFamily::Legendre => Ok(legendre_rules()?.get_for_degree(degree)?.clone()),
+        GaussFamily::Lobatto => Ok(lobatto_rules()?.get_for_degree(degree)?.clone()),
+    }
+}
+
+/// Integrates `f` once using the legacy options structure.
+pub fn fixed_quad<F>(
+    mut f: F,
+    opts: FixedQuadOpts,
+) -> Result<f64, OptionsError>
+where
+    F: FnMut(f64, f64) -> f64,
+{
+    Ok(FixedQuad::new(opts)?.integrate(&mut f)?)
+}
+
+pub(crate) fn rectangle_from_bounds(bounds: (f64, f64, f64, f64)) -> Rectangle {
+    Rectangle::new(
+        Interval::new_unchecked(bounds.0, bounds.1),
+        Interval::new_unchecked(bounds.2, bounds.3),
+    )
+}

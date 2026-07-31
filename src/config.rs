@@ -153,7 +153,7 @@ impl ConfigError {
         }
     }
 
-    fn from_issues(issues: Vec<ConfigIssue>) -> Self {
+    pub(crate) fn from_issues(issues: Vec<ConfigIssue>) -> Self {
         debug_assert!(!issues.is_empty());
         Self { issues }
     }
@@ -330,6 +330,13 @@ impl Interval {
             }));
         }
         Ok(Self { lower, upper })
+    }
+
+    pub(crate) const fn new_unchecked(
+        lower: f64,
+        upper: f64,
+    ) -> Self {
+        Self { lower, upper }
     }
 
     /// Returns the lower bound.

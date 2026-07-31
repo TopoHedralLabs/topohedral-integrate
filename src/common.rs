@@ -7,7 +7,7 @@
 //{{{ std imports
 //}}}
 //{{{ dep imports
-use crate::gauss::RuleError;
+use crate::{config::ConfigError, gauss::RuleError, integration::IntegrationError};
 use thiserror::Error;
 //}}}
 //--------------------------------------------------------------------------------------------------
@@ -39,6 +39,12 @@ pub enum OptionsError {
     /// A Gaussian rule could not be constructed.
     #[error(transparent)]
     Rule(#[from] RuleError),
+    /// A validated configuration could not be constructed.
+    #[error(transparent)]
+    Config(#[from] ConfigError),
+    /// An integrand could not be evaluated.
+    #[error(transparent)]
+    Integration(#[from] IntegrationError),
 }
 
 /// Appends the reason to the error.
@@ -52,6 +58,7 @@ pub fn append_reason(
             s.push_str(format!("\n\t{reason}").as_str());
         }
         OptionsError::Rule(_) => {}
+        OptionsError::Config(_) | OptionsError::Integration(_) => {}
     }
 }
 

@@ -1,5 +1,5 @@
 use topohedral_integrate::{
-    AxisDepths, ConfigIssue, FixedQuad1D, FixedQuadOpts1D, GaussFamily, Interval, PointCount,
+    AxisDepths, ConfigIssue, FixedQuadOpts1D, FixedQuadrature1D, GaussFamily, Interval, PointCount,
     PolynomialDegree, Rectangle, RefinementDepth, Tolerance,
 };
 
@@ -128,7 +128,7 @@ fn refinement_depth_zero_is_valid_and_defaults_to_32() {
 #[test]
 fn legacy_fixed_configuration_uses_strict_subdivision_validation() {
     let make = |subdiv| {
-        FixedQuad1D::new(FixedQuadOpts1D {
+        FixedQuadrature1D::new(FixedQuadOpts1D {
             gauss_type: GaussFamily::Legendre,
             order: 3,
             bounds: (-1.0, 1.0),
@@ -138,10 +138,7 @@ fn legacy_fixed_configuration_uses_strict_subdivision_validation() {
 
     let without_subdivisions = make(None).unwrap();
     let empty_subdivisions = make(Some(Vec::new())).unwrap();
-    assert_eq!(
-        without_subdivisions.points_weights,
-        empty_subdivisions.points_weights
-    );
+    assert_eq!(without_subdivisions.nodes(), empty_subdivisions.nodes());
 
     for invalid in [
         vec![f64::NAN],

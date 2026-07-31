@@ -6,8 +6,8 @@ mod d1_tests {
     use serde::Deserialize;
     use std::fs;
     use topohedral_integrate::{
-        fixed_quad_1d as fixed_quad, FixedQuad1D as FixedQuad, FixedQuadOpts1D as FixedQuadOpts,
-        GaussFamily,
+        fixed_quad_1d as fixed_quad, FixedQuadOpts1D as FixedQuadOpts,
+        FixedQuadrature1D as FixedQuad, GaussFamily,
     };
 
     const MAX_REL: f64 = 1e-14;
@@ -81,9 +81,9 @@ mod d1_tests {
         })
         .unwrap();
 
-        assert_eq!(rule.opts.order, 3);
-        assert_eq!(rule.opts.bounds, (-1.0, 1.0));
-        assert_eq!(rule.opts.subdiv, Some(vec![0.0]));
+        assert_eq!(rule.rule().exactness().value(), 3);
+        assert_eq!(rule.domain().bounds(), (-1.0, 1.0));
+        assert_eq!(rule.subdivision_points(), &[0.0]);
     }
 
     #[test]
@@ -265,7 +265,8 @@ mod d2_tests {
 
     mod d2 {
         pub use topohedral_integrate::{
-            fixed_quad_2d as fixed_quad, FixedQuad2D as FixedQuad, FixedQuadOpts2D as FixedQuadOpts,
+            fixed_quad_2d as fixed_quad, FixedQuadOpts2D as FixedQuadOpts,
+            FixedQuadrature2D as FixedQuad,
         };
     }
 
@@ -367,9 +368,12 @@ mod d2_tests {
         })
         .unwrap();
 
-        assert_eq!(rule.opts.order, (3, 3));
-        assert_eq!(rule.opts.bounds, (-1.0, 1.0, -2.0, 2.0));
-        assert_eq!(rule.opts.subdiv, Some((vec![0.0], vec![1.0])));
+        assert_eq!(rule.rule().u().exactness().value(), 3);
+        assert_eq!(rule.rule().v().exactness().value(), 3);
+        assert_eq!(rule.domain().u().bounds(), (-1.0, 1.0));
+        assert_eq!(rule.domain().v().bounds(), (-2.0, 2.0));
+        assert_eq!(rule.u_subdivision_points(), &[0.0]);
+        assert_eq!(rule.v_subdivision_points(), &[1.0]);
     }
 
     #[test]

@@ -119,11 +119,12 @@ fn error_estimate<F: Fn(f64, f64) -> f64>(
     fixed_rule_low: &fi::d2::FixedQuad,
     fixed_rule_high: &fi::d2::FixedQuad,
     bounds: (f64, f64, f64, f64),
-) -> (f64, f64) {
-    let integral_low = fixed_rule_low.integrate(f, Some(bounds));
-    let integral_high = fixed_rule_high.integrate(f, Some(bounds));
+) -> Result<(f64, f64), crate::IntegrationError> {
+    let domain = fi::d2::rectangle_from_bounds(bounds);
+    let integral_low = fixed_rule_low.integrate_over(domain, f)?;
+    let integral_high = fixed_rule_high.integrate_over(domain, f)?;
     let err = (integral_high - integral_low).abs();
-    (integral_low, err)
+    Ok((integral_low, err))
 }
 //}}}
 //{{{ fun: adaptive_quad
@@ -163,7 +164,7 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
     let mut has_converged = false;
     let mut marked = Vec::<usize>::with_capacity(100);
     let mut num_fn_eval = 0;
-    let nqp = fixed_rule_low.nqp() + fixed_rule_high.nqp();
+    let nqp = fixed_rule_low.point_count() + fixed_rule_high.point_count();
     //}}}
     //{{{ com: find the initial intervals in u and v
     match &init_subdiv {
@@ -213,7 +214,7 @@ pub fn adaptive_quad<F: Fn(f64, f64) -> f64>(
             let bounds = (interval[0], interval[1], interval[2], interval[3]);
             if interval[4] == non_val {
                 let (integral, err_est) =
-                    error_estimate(f, &fixed_rule_low, &fixed_rule_high, bounds);
+                    error_estimate(f, &fixed_rule_low, &fixed_rule_high, bounds)?;
                 //{{{ trace
                 debug!("integral = {}, err_est = {}", integral, err_est);
                 //}}}

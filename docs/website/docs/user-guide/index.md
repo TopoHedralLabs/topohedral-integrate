@@ -1,9 +1,8 @@
 # User Guide
 
-The crate exposes its complete public API at the crate root. Import symbols
-such as `GaussRule`, `FixedQuad1D`, and `adaptive_quad_2d` directly from
-`topohedral_integrate`; the internal `gauss`, `fixed`, and `adaptive` modules
-are not part of the public interface.
+The public API is flat: Gaussian rules, validated configuration values, fixed
+quadratures, and adaptive entry points are all available at the crate root.
+Dimensional types use explicit `1D` and `2D` suffixes.
 
 The API is divided into three areas:
 
@@ -23,8 +22,8 @@ available through `GaussFamily`.
 ## Fixed quadrature
 
 [Fixed quadrature](fixed-quadrature.md) maps a Gaussian rule onto a 1D interval
-or 2D rectangle. `FixedQuad1D` and `FixedQuad2D` precompute their points and
-weights and can be reused for multiple functions.
+or 2D rectangle. The corresponding `Quadrature` types precompute typed nodes
+and can be reused for multiple functions.
 
 ## Adaptive quadrature
 
@@ -35,19 +34,20 @@ return both the integral and diagnostic information.
 
 ## Options validation
 
-Options are validated by the public operation that consumes or uses them.
-`FixedQuad1D::new`, `FixedQuad2D::new`, the one-shot fixed helpers, and the
-adaptive integration functions return `Result` and report invalid options as
-an `OptionsError`:
+Fixed quadrature starts from validated domain and Gaussian-rule values. Its
+builder validates subdivisions before constructing the reusable quadrature:
 
 ```rust
-use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussFamily};
+use topohedral_integrate::{
+    FixedQuadrature1D, GaussFamily, GaussRule, Interval, PolynomialDegree,
+};
 
-let result = FixedQuad1D::new(FixedQuadOpts1D {
-    gauss_type: GaussFamily::Legendre,
-    order: 9,
-    bounds: (-1.0, 1.0),
-    subdiv: None,
-});
-assert!(result.is_ok());
+let domain = Interval::new(-1.0, 1.0).unwrap();
+let degree = PolynomialDegree::new(9).unwrap();
+let rule = GaussRule::for_degree(GaussFamily::Legendre, degree).unwrap();
+let quadrature = FixedQuadrature1D::builder(domain, rule)
+    .subdivisions([0.0])
+    .unwrap()
+    .build();
+assert_eq!(quadrature.subdivision_points(), &[0.0]);
 ```
