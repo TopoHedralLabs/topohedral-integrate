@@ -547,6 +547,19 @@ impl Tolerance {
     }
 }
 
+impl fmt::Display for Tolerance {
+    fn fmt(
+        &self,
+        formatter: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        write!(
+            formatter,
+            "absolute {}, relative {}",
+            self.absolute, self.relative
+        )
+    }
+}
+
 /// Maximum adaptive-refinement depth.
 ///
 /// A depth of zero evaluates the initial regions without permitting refinement.
@@ -644,6 +657,15 @@ impl Default for AxisDepths {
 impl From<(RefinementDepth, RefinementDepth)> for AxisDepths {
     fn from((u, v): (RefinementDepth, RefinementDepth)) -> Self {
         Self::new(u, v)
+    }
+}
+
+impl fmt::Display for AxisDepths {
+    fn fmt(
+        &self,
+        formatter: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        write!(formatter, "u {}, v {}", self.u, self.v)
     }
 }
 

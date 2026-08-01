@@ -10,20 +10,77 @@ use crate::integration::{EvaluationPoint, IntegrationError};
 
 /// Legacy configuration for two-dimensional fixed quadrature.
 ///
-/// New code should prefer [`crate::FixedQuadrature2D::builder`].
-#[derive(Debug)]
+/// Every value is validated by [`FixedQuad::new`] rather than on assignment, so the fields are
+/// private and reached through accessors. New code should prefer
+/// [`crate::FixedQuadrature2D::builder`].
+#[derive(Clone, Debug, PartialEq)]
 pub struct FixedQuadOpts {
-    /// Gauss quadrature families in `(u, v)` order.
-    pub gauss_type: (GaussFamily, GaussFamily),
-    /// Minimum polynomial exactness in `(u, v)` order.
-    pub order: (usize, usize),
-    /// Rectangular integration bounds `(u_min, u_max, v_min, v_max)`.
-    pub bounds: (f64, f64, f64, f64),
-    /// Optional interior subdivision coordinates in `(u, v)` order.
-    pub subdiv: Option<(Vec<f64>, Vec<f64>)>,
+    gauss_type: (GaussFamily, GaussFamily),
+    order: (usize, usize),
+    bounds: (f64, f64, f64, f64),
+    u_subdiv: Vec<f64>,
+    v_subdiv: Vec<f64>,
 }
 
 impl FixedQuadOpts {
+    /// Describes a tensor-product rule of the requested families and minimum polynomial
+    /// exactnesses on `bounds`, given as `(u_min, u_max, v_min, v_max)`.
+    pub const fn new(
+        gauss_type: (GaussFamily, GaussFamily),
+        order: (usize, usize),
+        bounds: (f64, f64, f64, f64),
+    ) -> Self {
+        Self {
+            gauss_type,
+            order,
+            bounds,
+            u_subdiv: Vec::new(),
+            v_subdiv: Vec::new(),
+        }
+    }
+
+    /// Replaces the interior subdivision coordinates on both axes. Empty input on either axis
+    /// means no subdivision on that axis.
+    #[must_use]
+    pub fn with_subdivisions<U, V>(
+        mut self,
+        u_points: U,
+        v_points: V,
+    ) -> Self
+    where
+        U: IntoIterator<Item = f64>,
+        V: IntoIterator<Item = f64>,
+    {
+        self.u_subdiv = u_points.into_iter().collect();
+        self.v_subdiv = v_points.into_iter().collect();
+        self
+    }
+
+    /// Returns the Gauss quadrature families in `(u, v)` order.
+    pub const fn gauss_type(&self) -> (GaussFamily, GaussFamily) {
+        self.gauss_type
+    }
+
+    /// Returns the minimum polynomial exactnesses in `(u, v)` order.
+    pub const fn order(&self) -> (usize, usize) {
+        self.order
+    }
+
+    /// Returns the rectangular bounds as `(u_min, u_max, v_min, v_max)`.
+    pub const fn bounds(&self) -> (f64, f64, f64, f64) {
+        self.bounds
+    }
+
+    /// Returns the requested `u`-axis subdivision coordinates.
+    pub fn u_subdivisions(&self) -> &[f64] {
+        &self.u_subdiv
+    }
+
+    /// Returns the requested `v`-axis subdivision coordinates.
+    pub fn v_subdivisions(&self) -> &[f64] {
+        &self.v_subdiv
+    }
+
     fn validate(&self) -> Result<(Rectangle, Vec<f64>, Vec<f64>), ConfigError> {
         let mut issues = Vec::new();
         for (axis, family, degree) in [
@@ -54,12 +111,12 @@ impl FixedQuadOpts {
         };
 
         let (mut u_subdivisions, mut v_subdivisions) = (Vec::new(), Vec::new());
-        if let (Some(domain), Some((u, v))) = (domain, &self.subdiv) {
-            match validate_subdivisions(domain.u(), u.iter().copied()) {
+        if let Some(domain) = domain {
+            match validate_subdivisions(domain.u(), self.u_subdiv.iter().copied()) {
                 Ok(points) => u_subdivisions = points,
                 Err(error) => issues.extend_from_slice(error.issues()),
             }
-            match validate_subdivisions(domain.v(), v.iter().copied()) {
+            match validate_subdivisions(domain.v(), self.v_subdiv.iter().copied()) {
                 Ok(points) => v_subdivisions = points,
                 Err(error) => issues.extend_from_slice(error.issues()),
             }
@@ -129,7 +186,7 @@ impl Node {
 }
 
 /// Consuming builder for a two-dimensional fixed quadrature.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Builder {
     domain: Rectangle,
     rule: TensorRule,

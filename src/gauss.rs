@@ -146,7 +146,7 @@ impl fmt::Display for GaussFamily {
 //}}}
 //{{{ enum: RuleError
 /// An error encountered while constructing or retrieving a Gaussian rule.
-#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[derive(Clone, Debug, Eq, Error, Hash, PartialEq)]
 pub enum RuleError {
     /// The requested polynomial degree exceeds the supported maximum.
     #[error("polynomial degree {degree} exceeds the supported maximum of {maximum}")]

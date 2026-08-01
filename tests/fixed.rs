@@ -50,12 +50,8 @@ mod d1_tests {
     //{{{ collection: misc tests
     #[test]
     fn test_fixed_quad_opts() {
-        let opts = FixedQuadOpts {
-            gauss_type: GaussFamily::Legendre,
-            order: 101,
-            bounds: (1.0, 0.0),
-            subdiv: Some(Vec::<f64>::new()),
-        };
+        let opts = FixedQuadOpts::new(GaussFamily::Legendre, 101, (1.0, 0.0))
+            .with_subdivisions(Vec::<f64>::new());
 
         let OptionsError::Config(error) = FixedQuad::new(opts).unwrap_err() else {
             panic!("expected structured configuration error");
@@ -83,12 +79,9 @@ mod d1_tests {
 
     #[test]
     fn test_fixed_quad_stores_opts() {
-        let rule = FixedQuad::new(FixedQuadOpts {
-            gauss_type: GaussFamily::Legendre,
-            order: 3,
-            bounds: (-1.0, 1.0),
-            subdiv: Some(vec![0.0]),
-        })
+        let rule = FixedQuad::new(
+            FixedQuadOpts::new(GaussFamily::Legendre, 3, (-1.0, 1.0)).with_subdivisions([0.0]),
+        )
         .unwrap();
 
         assert_eq!(rule.rule().exactness().value(), 3);
@@ -100,12 +93,7 @@ mod d1_tests {
     fn one_point_legendre_rule_integrates_linear_function() {
         let integral = fixed_quad(
             &|x: f64| x,
-            FixedQuadOpts {
-                gauss_type: GaussFamily::Legendre,
-                order: 0,
-                bounds: (2.0, 5.0),
-                subdiv: None,
-            },
+            FixedQuadOpts::new(GaussFamily::Legendre, 0, (2.0, 5.0)),
         )
         .unwrap();
 
@@ -131,12 +119,7 @@ mod d1_tests {
                 };
 
                 {
-                    let opts = FixedQuadOpts {
-                        gauss_type: GaussFamily::Legendre,
-                        order: 2 * $nqp - 1,
-                        bounds: range,
-                        subdiv: None,
-                    };
+                    let opts = FixedQuadOpts::new(GaussFamily::Legendre, 2 * $nqp - 1, range);
                     let integral2 = fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
@@ -145,12 +128,8 @@ mod d1_tests {
                     let a = range.0 + dx;
                     let b = range.0 + 2.0 * dx;
 
-                    let opts = FixedQuadOpts {
-                        gauss_type: GaussFamily::Legendre,
-                        order: 2 * $nqp - 1,
-                        bounds: range,
-                        subdiv: vec![a, b].into(),
-                    };
+                    let opts = FixedQuadOpts::new(GaussFamily::Legendre, 2 * $nqp - 1, range)
+                        .with_subdivisions([a, b]);
                     let integral2 = fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
@@ -212,12 +191,7 @@ mod d1_tests {
                 };
 
                 {
-                    let opts = FixedQuadOpts {
-                        gauss_type: GaussFamily::Lobatto,
-                        order: 2 * $nqp - 3,
-                        bounds: range,
-                        subdiv: None,
-                    };
+                    let opts = FixedQuadOpts::new(GaussFamily::Lobatto, 2 * $nqp - 3, range);
                     let integral2 = fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
@@ -226,12 +200,8 @@ mod d1_tests {
                     let a = range.0 + dx;
                     let b = range.0 + 2.0 * dx;
 
-                    let opts = FixedQuadOpts {
-                        gauss_type: GaussFamily::Lobatto,
-                        order: 2 * $nqp - 3,
-                        bounds: range,
-                        subdiv: vec![a, b].into(),
-                    };
+                    let opts = FixedQuadOpts::new(GaussFamily::Lobatto, 2 * $nqp - 3, range)
+                        .with_subdivisions([a, b]);
                     let integral2 = fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
@@ -324,12 +294,12 @@ mod d2_tests {
     //{{{ collection: misc tests
     #[test]
     fn test_fixed_quad_opts1() {
-        let opts = d2::FixedQuadOpts {
-            gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
-            order: (101, 102),
-            bounds: (2.0, 0.0, 2.0, 0.0),
-            subdiv: Some((Vec::<f64>::new(), Vec::new())),
-        };
+        let opts = d2::FixedQuadOpts::new(
+            (GaussFamily::Legendre, GaussFamily::Legendre),
+            (101, 102),
+            (2.0, 0.0, 2.0, 0.0),
+        )
+        .with_subdivisions(Vec::<f64>::new(), Vec::<f64>::new());
 
         let OptionsError::Config(error) = d2::FixedQuad::new(opts).unwrap_err() else {
             panic!("expected structured configuration error");
@@ -363,12 +333,12 @@ mod d2_tests {
 
     #[test]
     fn test_fixed_quad_opts2() {
-        let opts = d2::FixedQuadOpts {
-            gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
-            order: (3, 3),
-            bounds: (1.0, 2.0, 1.0, 2.0),
-            subdiv: Some((vec![0.0], vec![0.0])),
-        };
+        let opts = d2::FixedQuadOpts::new(
+            (GaussFamily::Legendre, GaussFamily::Legendre),
+            (3, 3),
+            (1.0, 2.0, 1.0, 2.0),
+        )
+        .with_subdivisions([0.0], [0.0]);
 
         let OptionsError::Config(error) = d2::FixedQuad::new(opts).unwrap_err() else {
             panic!("expected structured configuration error");
@@ -394,12 +364,14 @@ mod d2_tests {
 
     #[test]
     fn test_fixed_quad_stores_opts() {
-        let rule = d2::FixedQuad::new(d2::FixedQuadOpts {
-            gauss_type: (GaussFamily::Legendre, GaussFamily::Lobatto),
-            order: (3, 3),
-            bounds: (-1.0, 1.0, -2.0, 2.0),
-            subdiv: Some((vec![0.0], vec![1.0])),
-        })
+        let rule = d2::FixedQuad::new(
+            d2::FixedQuadOpts::new(
+                (GaussFamily::Legendre, GaussFamily::Lobatto),
+                (3, 3),
+                (-1.0, 1.0, -2.0, 2.0),
+            )
+            .with_subdivisions([0.0], [1.0]),
+        )
         .unwrap();
 
         assert_eq!(rule.rule().u().exactness().value(), 3);
@@ -414,12 +386,11 @@ mod d2_tests {
     fn one_point_legendre_rule_integrates_bilinear_function() {
         let integral = d2::fixed_quad(
             &|x: f64, y: f64| x + y,
-            d2::FixedQuadOpts {
-                gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
-                order: (0, 0),
-                bounds: (1.0, 3.0, -2.0, 2.0),
-                subdiv: None,
-            },
+            d2::FixedQuadOpts::new(
+                (GaussFamily::Legendre, GaussFamily::Legendre),
+                (0, 0),
+                (1.0, 3.0, -2.0, 2.0),
+            ),
         )
         .unwrap();
 
@@ -450,12 +421,11 @@ mod d2_tests {
                 };
 
                 {
-                    let opts = d2::FixedQuadOpts {
-                        gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
-                        order: (2 * $nqp - 1, 2 * $nqp - 1),
-                        bounds: range,
-                        subdiv: None,
-                    };
+                    let opts = d2::FixedQuadOpts::new(
+                        (GaussFamily::Legendre, GaussFamily::Legendre),
+                        (2 * $nqp - 1, 2 * $nqp - 1),
+                        range,
+                    );
                     let integral2 = d2::fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
@@ -467,12 +437,12 @@ mod d2_tests {
                     let c = range.2 + dy;
                     let d = range.2 + 2.0 * dy;
 
-                    let opts = d2::FixedQuadOpts {
-                        gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
-                        order: (2 * $nqp - 1, 2 * $nqp - 1),
-                        bounds: range,
-                        subdiv: Some((vec![a, b], vec![c, d])),
-                    };
+                    let opts = d2::FixedQuadOpts::new(
+                        (GaussFamily::Legendre, GaussFamily::Legendre),
+                        (2 * $nqp - 1, 2 * $nqp - 1),
+                        range,
+                    )
+                    .with_subdivisions([a, b], [c, d]);
                     let integral2 = d2::fixed_quad(&pol, opts).unwrap();
 
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
@@ -538,12 +508,11 @@ mod d2_tests {
                 };
 
                 {
-                    let opts = d2::FixedQuadOpts {
-                        gauss_type: (GaussFamily::Legendre, GaussFamily::Legendre),
-                        order: (2 * $nqp - 1, 2 * $nqp - 1),
-                        bounds: range,
-                        subdiv: None,
-                    };
+                    let opts = d2::FixedQuadOpts::new(
+                        (GaussFamily::Legendre, GaussFamily::Legendre),
+                        (2 * $nqp - 1, 2 * $nqp - 1),
+                        range,
+                    );
                     let integral2 = d2::fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }
@@ -555,12 +524,12 @@ mod d2_tests {
                     let c = range.2 + dy;
                     let d = range.2 + 2.0 * dy;
 
-                    let opts = d2::FixedQuadOpts {
-                        gauss_type: (GaussFamily::Lobatto, GaussFamily::Lobatto),
-                        order: (2 * $nqp - 1, 2 * $nqp - 1),
-                        bounds: range,
-                        subdiv: Some((vec![a, b], vec![c, d])),
-                    };
+                    let opts = d2::FixedQuadOpts::new(
+                        (GaussFamily::Lobatto, GaussFamily::Lobatto),
+                        (2 * $nqp - 1, 2 * $nqp - 1),
+                        range,
+                    )
+                    .with_subdivisions([a, b], [c, d]);
                     let integral2 = d2::fixed_quad(&pol, opts).unwrap();
                     assert_relative_eq!(integral1, integral2, max_relative = MAX_REL);
                 }

@@ -16,7 +16,7 @@ struct Region {
 }
 
 /// Consuming builder for two-dimensional adaptive quadrature.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Builder {
     domain: Rectangle,
     low_rule: TensorRule,

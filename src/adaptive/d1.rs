@@ -15,7 +15,7 @@ struct Region {
 }
 
 /// Consuming builder for one-dimensional adaptive quadrature.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Builder {
     domain: Interval,
     low_rule: GaussRule,

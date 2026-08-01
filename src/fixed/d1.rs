@@ -9,20 +9,65 @@ use crate::integration::{EvaluationPoint, IntegrationError};
 
 /// Legacy configuration for one-dimensional fixed quadrature.
 ///
-/// New code should prefer [`crate::FixedQuadrature1D::builder`].
-#[derive(Debug)]
+/// Every value is validated by [`FixedQuad::new`] rather than on assignment, so the fields are
+/// private and reached through accessors. New code should prefer
+/// [`crate::FixedQuadrature1D::builder`].
+#[derive(Clone, Debug, PartialEq)]
 pub struct FixedQuadOpts {
-    /// Gauss quadrature family used on every subinterval.
-    pub gauss_type: GaussFamily,
-    /// Minimum polynomial exactness requested for the rule.
-    pub order: usize,
-    /// Integration interval `(lower, upper)`.
-    pub bounds: (f64, f64),
-    /// Optional interior subdivision points.
-    pub subdiv: Option<Vec<f64>>,
+    gauss_type: GaussFamily,
+    order: usize,
+    bounds: (f64, f64),
+    subdiv: Vec<f64>,
 }
 
 impl FixedQuadOpts {
+    /// Describes a rule of the requested family and minimum polynomial exactness on `bounds`.
+    pub const fn new(
+        gauss_type: GaussFamily,
+        order: usize,
+        bounds: (f64, f64),
+    ) -> Self {
+        Self {
+            gauss_type,
+            order,
+            bounds,
+            subdiv: Vec::new(),
+        }
+    }
+
+    /// Replaces the interior subdivision points. Empty input means no subdivision.
+    #[must_use]
+    pub fn with_subdivisions<I>(
+        mut self,
+        points: I,
+    ) -> Self
+    where
+        I: IntoIterator<Item = f64>,
+    {
+        self.subdiv = points.into_iter().collect();
+        self
+    }
+
+    /// Returns the Gauss quadrature family used on every subinterval.
+    pub const fn gauss_type(&self) -> GaussFamily {
+        self.gauss_type
+    }
+
+    /// Returns the minimum polynomial exactness requested for the rule.
+    pub const fn order(&self) -> usize {
+        self.order
+    }
+
+    /// Returns the integration interval as `(lower, upper)`.
+    pub const fn bounds(&self) -> (f64, f64) {
+        self.bounds
+    }
+
+    /// Returns the requested interior subdivision points.
+    pub fn subdivisions(&self) -> &[f64] {
+        &self.subdiv
+    }
+
     fn validate(&self) -> Result<(Interval, Vec<f64>), ConfigError> {
         let mut issues = Vec::new();
         if self.order > MAX_DEGREE {
@@ -43,8 +88,8 @@ impl FixedQuadOpts {
         };
 
         let mut subdivisions = Vec::new();
-        if let (Some(domain), Some(points)) = (domain, &self.subdiv) {
-            match validate_subdivisions(domain, points.iter().copied()) {
+        if let Some(domain) = domain {
+            match validate_subdivisions(domain, self.subdiv.iter().copied()) {
                 Ok(points) => subdivisions = points,
                 Err(error) => issues.extend_from_slice(error.issues()),
             }
@@ -80,7 +125,7 @@ impl Node {
 }
 
 /// Consuming builder for a one-dimensional fixed quadrature.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Builder {
     domain: Interval,
     rule: GaussRule,

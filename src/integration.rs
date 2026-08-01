@@ -2,6 +2,7 @@
 
 use crate::{Interval, Rectangle};
 
+use std::fmt;
 use thiserror::Error;
 
 /// Coordinates at which an integrand was evaluated.
@@ -16,6 +17,18 @@ pub enum EvaluationPoint {
         /// Coordinate on the `v` axis.
         v: f64,
     },
+}
+
+impl fmt::Display for EvaluationPoint {
+    fn fmt(
+        &self,
+        formatter: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        match self {
+            Self::OneDimensional(x) => write!(formatter, "x = {x}"),
+            Self::TwoDimensional { u, v } => write!(formatter, "(u, v) = ({u}, {v})"),
+        }
+    }
 }
 
 /// Value and diagnostics produced by adaptive integration.
@@ -67,7 +80,7 @@ impl AdaptiveResult {
 #[derive(Clone, Debug, Error, PartialEq)]
 pub enum IntegrationError {
     /// The integrand returned NaN or infinity.
-    #[error("integrand returned non-finite value {value} at {point:?}")]
+    #[error("integrand returned non-finite value {value} at {point}")]
     NonFiniteIntegrand {
         /// Evaluation coordinates.
         point: EvaluationPoint,
