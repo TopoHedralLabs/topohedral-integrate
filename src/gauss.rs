@@ -32,6 +32,7 @@ static LOBATTO_RULES: OnceLock<Result<GaussRuleSet, RuleError>> = OnceLock::new(
 /// Returns the cached Gauss-Legendre rules through degree 100.
 ///
 /// Repeated calls borrow the same process-wide rule set.
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
 ///
 /// # Errors
 ///
@@ -47,6 +48,7 @@ pub fn legendre_rules() -> Result<&'static GaussRuleSet, RuleError> {
 /// Returns the cached Gauss-Lobatto rules through degree 100.
 ///
 /// Repeated calls borrow the same process-wide rule set.
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
 ///
 /// # Errors
 ///
@@ -61,6 +63,9 @@ pub fn lobatto_rules() -> Result<&'static GaussRuleSet, RuleError> {
 //}}}
 //{{{ enum: GaussFamily
 /// A supported Gauss quadrature family.
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum GaussFamily {
     /// Gauss-Legendre quadrature on `[-1, 1]` with unit weight.
@@ -145,6 +150,9 @@ impl fmt::Display for GaussFamily {
 //}}}
 //{{{ enum: RuleError
 /// An error encountered while constructing or retrieving a Gaussian rule.
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, Eq, Error, Hash, PartialEq)]
 pub enum RuleError {
     /// The requested polynomial degree exceeds the supported maximum.
@@ -182,6 +190,8 @@ pub enum RuleError {
 //{{{ collection: GaussRuleSet
 //{{{ struct: GaussRuleSet
 /// A collection of Gauss quadrature rules through a maximum requested exactness degree.
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
 #[derive(Clone, Debug, PartialEq)]
 pub struct GaussRuleSet {
     family: GaussFamily,
@@ -314,6 +324,8 @@ impl GaussRuleSet {
 //{{{ collection: GaussRule
 //{{{ struct: GaussRule
 /// A specific Gauss quadrature rule, represented by points and associated weights.
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
 #[derive(Clone, Debug, PartialEq)]
 pub struct GaussRule {
     family: GaussFamily,
@@ -413,6 +425,83 @@ impl GaussRule {
 }
 //}}}
 //}}}
+
+//{{{ mod: serde_impls
+#[cfg(feature = "serde")]
+mod serde_impls {
+    use super::{GaussFamily, GaussRule, GaussRuleSet};
+    use crate::{PointCount, PolynomialDegree};
+    use serde::de::Error as _;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Deserialize, Serialize)]
+    struct RuleRepresentation {
+        family: GaussFamily,
+        point_count: PointCount,
+    }
+
+    impl Serialize for GaussRule {
+        fn serialize<S>(
+            &self,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            RuleRepresentation {
+                family: self.family(),
+                point_count: self.point_count(),
+            }
+            .serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for GaussRule {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let representation = RuleRepresentation::deserialize(deserializer)?;
+            Self::with_point_count(representation.family, representation.point_count)
+                .map_err(D::Error::custom)
+        }
+    }
+
+    #[derive(Deserialize, Serialize)]
+    struct RuleSetRepresentation {
+        family: GaussFamily,
+        maximum_degree: PolynomialDegree,
+    }
+
+    impl Serialize for GaussRuleSet {
+        fn serialize<S>(
+            &self,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            RuleSetRepresentation {
+                family: self.family(),
+                maximum_degree: self.maximum_degree(),
+            }
+            .serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for GaussRuleSet {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let representation = RuleSetRepresentation::deserialize(deserializer)?;
+            Self::through_degree(representation.family, representation.maximum_degree)
+                .map_err(D::Error::custom)
+        }
+    }
+}
+//}}}
+
 //{{{ fun: validate_degree
 fn validate_degree(
     degree: usize,

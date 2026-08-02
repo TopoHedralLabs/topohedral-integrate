@@ -13,6 +13,9 @@ const MAX_POLYNOMIAL_DEGREE: usize = 101;
 const MAX_POINT_COUNT: usize = 52;
 
 /// Coordinate whose Gaussian rule failed adaptive rule-pair validation.
+///
+/// See the [validated-values guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/validated-values/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum RuleAxis {
     /// The single coordinate of a one-dimensional rule.
@@ -37,6 +40,9 @@ impl fmt::Display for RuleAxis {
 }
 
 /// A single invalid configuration value.
+///
+/// See the [validated-values guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/validated-values/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum ConfigIssue {
@@ -198,6 +204,9 @@ impl fmt::Display for ConfigIssue {
 }
 
 /// One or more invalid configuration values.
+///
+/// See the [validated-values guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/validated-values/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConfigError {
     issues: Vec<ConfigIssue>,
@@ -236,6 +245,10 @@ impl fmt::Display for ConfigError {
 impl Error for ConfigError {}
 
 /// A validated polynomial degree.
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PolynomialDegree(usize);
 
@@ -296,6 +309,10 @@ impl fmt::Display for PolynomialDegree {
 ///
 /// The generic range covers both supported families. A constructor taking a [`crate::GaussFamily`]
 /// performs the remaining family-specific validation.
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PointCount(usize);
 
@@ -357,6 +374,9 @@ impl fmt::Display for PointCount {
 }
 
 /// A finite, nonempty interval with strictly increasing bounds.
+///
+/// See the [validated-values guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/validated-values/).
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Interval {
     lower: f64,
@@ -426,6 +446,9 @@ impl fmt::Display for Interval {
 }
 
 /// A rectangle composed of validated `u` and `v` intervals.
+///
+/// See the [validated-values guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/validated-values/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rectangle {
     u: Interval,
@@ -487,6 +510,9 @@ impl fmt::Display for Rectangle {
 }
 
 /// Absolute and relative error tolerances.
+///
+/// See the [adaptive-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/).
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tolerance {
     absolute: f64,
@@ -563,6 +589,9 @@ impl fmt::Display for Tolerance {
 /// Maximum adaptive-refinement depth.
 ///
 /// A depth of zero evaluates the initial regions without permitting refinement.
+/// See the [adaptive-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RefinementDepth(usize);
 
@@ -609,6 +638,9 @@ impl fmt::Display for RefinementDepth {
 }
 
 /// Maximum adaptive-refinement depths for two axes.
+///
+/// See the [adaptive-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct AxisDepths {
     u: RefinementDepth,
@@ -669,6 +701,68 @@ impl fmt::Display for AxisDepths {
     }
 }
 
+//{{{ mod: serde_impls
+#[cfg(feature = "serde")]
+mod serde_impls {
+    use super::{Interval, PointCount, PolynomialDegree, Tolerance};
+    use serde::de::Error as _;
+    use serde::{Deserialize, Deserializer};
+
+    impl<'de> Deserialize<'de> for PolynomialDegree {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let degree = usize::deserialize(deserializer)?;
+            Self::new(degree).map_err(D::Error::custom)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for PointCount {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let point_count = usize::deserialize(deserializer)?;
+            Self::new(point_count).map_err(D::Error::custom)
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct RawInterval {
+        lower: f64,
+        upper: f64,
+    }
+
+    impl<'de> Deserialize<'de> for Interval {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let raw = RawInterval::deserialize(deserializer)?;
+            Self::new(raw.lower, raw.upper).map_err(D::Error::custom)
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct RawTolerance {
+        absolute: f64,
+        relative: f64,
+    }
+
+    impl<'de> Deserialize<'de> for Tolerance {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let raw = RawTolerance::deserialize(deserializer)?;
+            Self::new(raw.absolute, raw.relative).map_err(D::Error::custom)
+        }
+    }
+}
+//}}}
+
+//{{{ fun: validate_subdivisions
 pub(crate) fn validate_subdivisions<I>(
     interval: Interval,
     points: I,
@@ -713,7 +807,9 @@ where
         Err(ConfigError::from_issues(issues))
     }
 }
+//}}}
 
+//{{{ mod: tests
 #[cfg(test)]
 mod tests {
     use super::{validate_subdivisions, ConfigIssue, Interval};
@@ -750,3 +846,4 @@ mod tests {
         ));
     }
 }
+//}}}

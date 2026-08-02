@@ -1,34 +1,41 @@
 [package]
 name = "topohedral-integrate"
-version = "0.0.2"
+version = "0.1.0"
 authors = ["John Ferguson <JAFerguson952@gmail.com>"]
 edition = "2021"
+rust-version = "1.85"
 repository = "https://github.com/TopoHedralLabs/topohedral-integrate"
+homepage = "https://topohedrallabs.github.io/topohedral-integrate/"
+documentation = "https://topohedrallabs.github.io/topohedral-integrate/latest/api/topohedral_integrate/"
 readme = "README.md"
 license = "MIT"
-description = "A crate for numerical integration."
+description = "Validated Gaussian fixed and adaptive quadrature in one and two dimensions"
+keywords = ["integration", "quadrature", "gaussian", "numerical", "mathematics"]
+categories = ["algorithms", "mathematics", "science"]
 publish = ["cloudsmith"]
+exclude = ["PLAN.md"]
 
 [features]
 default = []
+serde = ["dep:serde"]
 trace = [
     "dep:topohedral-tracing",
-    "topohedral-linalg/enable_trace",
-    "topohedral-tracing/enable_trace",
+    "topohedral-linalg/trace",
+    "topohedral-tracing/trace",
 ]
 
 [dependencies]
-serde = {version = "1.0.203", features = ["derive"]}
-serde_json = "1.0.117"
-approx = "0.5.1"
-log = "0.4.29"
+serde = { version = "1.0.203", features = ["derive"], optional = true }
 thiserror = "2.0.17"
-topohedral-tracing = {version = "0.1.1", registry = "cloudsmith", optional = true}
-topohedral-linalg = {version = "4.1.0", registry = "cloudsmith"}
+topohedral-tracing = { version = "0.3.0", registry = "cloudsmith", default-features = false, optional = true }
+topohedral-linalg = { version = "4.2.0", registry = "cloudsmith", default-features = false }
 
 
 [dev-dependencies]
+approx = "0.5.1"
 criterion = "0.8.2"
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.117"
 
 [[bench]]
 name = "fixed_quadrature"

@@ -1,11 +1,17 @@
 //! Fixed quadrature for one-dimensional real-valued functions.
 
+//{{{ crate imports
 use crate::config::{validate_subdivisions, Interval};
 use crate::gauss::GaussRule;
 use crate::integration::{EvaluationPoint, IntegrationError};
+//}}}
 
+//{{{ collection: Node
 /// A mapped point and weight for one-dimensional fixed quadrature.
+///
+/// See the [fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/).
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Node {
     point: f64,
@@ -26,7 +32,39 @@ impl Node {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Node {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct Representation {
+            point: f64,
+            weight: f64,
+        }
+
+        let representation = <Representation as serde::Deserialize>::deserialize(deserializer)?;
+        if !representation.point.is_finite()
+            || !representation.weight.is_finite()
+            || representation.weight <= 0.0
+        {
+            return Err(serde::de::Error::custom(
+                "quadrature node requires a finite point and positive finite weight",
+            ));
+        }
+        Ok(Self {
+            point: representation.point,
+            weight: representation.weight,
+        })
+    }
+}
+//}}}
+
+//{{{ collection: Builder
 /// Consuming builder for a one-dimensional fixed quadrature.
+///
+/// See the [fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Builder {
     domain: Interval,
@@ -65,8 +103,12 @@ impl Builder {
         }
     }
 }
+//}}}
 
+//{{{ collection: Quadrature
 /// A reusable one-dimensional fixed quadrature.
+///
+/// See the [fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Quadrature {
     domain: Interval,
@@ -123,6 +165,10 @@ impl Quadrature {
     /// # Errors
     ///
     /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+    ///
+    /// # Panics
+    ///
+    /// Panics raised by `f` are not caught and propagate to the caller.
     pub fn integrate<F>(
         &self,
         mut f: F,
@@ -138,6 +184,10 @@ impl Quadrature {
     /// # Errors
     ///
     /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+    ///
+    /// # Panics
+    ///
+    /// Panics raised by `f` are not caught and propagate to the caller.
     pub fn integrate_over<F>(
         &self,
         domain: Interval,
@@ -171,7 +221,9 @@ impl<'a> IntoIterator for &'a Quadrature {
         self.iter()
     }
 }
+//}}}
 
+//{{{ fun: integrate_nodes
 fn integrate_nodes<F>(
     nodes: &[Node],
     f: &mut F,
@@ -192,7 +244,9 @@ where
     }
     Ok(integral)
 }
+//}}}
 
+//{{{ fun: mapped_nodes
 pub(super) fn mapped_nodes(
     domain: Interval,
     rule: &GaussRule,
@@ -221,12 +275,19 @@ pub(super) fn mapped_nodes(
 
     nodes.into_boxed_slice()
 }
+//}}}
 
+//{{{ fun: fixed_quad
 /// Builds a one-dimensional fixed quadrature and integrates `f` once.
+/// See the [one-shot example](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/#one-dimensional-entry-point).
 ///
 /// # Errors
 ///
 /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+///
+/// # Panics
+///
+/// Panics raised by `f` are not caught and propagate to the caller.
 pub fn fixed_quad<F>(
     f: F,
     builder: Builder,
@@ -236,10 +297,13 @@ where
 {
     builder.build().integrate(f)
 }
+//}}}
 
+//{{{ impl: From<GaussRule> for Quadrature
 impl From<GaussRule> for Quadrature {
     fn from(rule: GaussRule) -> Self {
         let (lower, upper) = rule.family().range();
         Self::builder(Interval::new_unchecked(lower, upper), rule).build()
     }
 }
+//}}}

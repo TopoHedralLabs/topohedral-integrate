@@ -1,11 +1,14 @@
 //! Adaptive tensor-product quadrature for two-dimensional real-valued functions.
 
+//{{{ crate imports
 use crate::config::{validate_subdivisions, ConfigError, ConfigIssue, RuleAxis};
 use crate::fixed::d2::{Quadrature as FixedQuadrature, TensorRule};
 use crate::{
     AdaptiveResult, AxisDepths, IntegrationError, Interval, OptionsError, Rectangle, Tolerance,
 };
+//}}}
 
+//{{{ struct: Region
 #[derive(Clone, Copy, Debug)]
 struct Region {
     domain: Rectangle,
@@ -14,8 +17,12 @@ struct Region {
     high_estimate: f64,
     error_estimate: f64,
 }
+//}}}
 
+//{{{ collection: Builder
 /// Consuming builder for two-dimensional adaptive quadrature.
+///
+/// See the [adaptive-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Builder {
     domain: Rectangle,
@@ -103,8 +110,12 @@ impl Builder {
         })
     }
 }
+//}}}
 
+//{{{ collection: AdaptiveQuadrature
 /// Reusable two-dimensional adaptive tensor-product quadrature configuration.
+///
+/// See the [two-dimensional adaptive example](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/#two-dimensional-integration).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdaptiveQuadrature {
     domain: Rectangle,
@@ -181,6 +192,10 @@ impl AdaptiveQuadrature {
     /// [`IntegrationError::MaxDepthReached`] if the tolerance cannot be met within the configured
     /// per-axis depths, or [`IntegrationError::NonProgressingRectangle`] if an active-axis
     /// floating-point midpoint is not strictly interior.
+    ///
+    /// # Panics
+    ///
+    /// Panics raised by `f` are not caught and propagate to the caller.
     ///
     /// # Examples
     ///
@@ -313,7 +328,9 @@ impl AdaptiveQuadrature {
         region.u_depth < self.max_depth.u().value() || region.v_depth < self.max_depth.v().value()
     }
 }
+//}}}
 
+//{{{ fun: validate_rule_pair
 fn validate_rule_pair(
     low: &crate::GaussRule,
     high: &crate::GaussRule,
@@ -326,7 +343,9 @@ fn validate_rule_pair(
         issues.push(ConfigIssue::NonIncreasingRuleExactness { axis, low, high });
     }
 }
+//}}}
 
+//{{{ fun: evaluate_region
 fn evaluate_region<F>(
     domain: Rectangle,
     u_depth: usize,
@@ -348,7 +367,9 @@ where
         error_estimate: (high_estimate - low_estimate).abs(),
     })
 }
+//}}}
 
+//{{{ fun: axis_bounds
 fn axis_bounds(
     interval: Interval,
     subdivisions: &[f64],
@@ -359,7 +380,9 @@ fn axis_bounds(
     bounds.push(interval.upper());
     bounds
 }
+//}}}
 
+//{{{ fun: child_domains
 fn child_domains(
     domain: Rectangle,
     u_midpoint: Option<f64>,
@@ -375,7 +398,9 @@ fn child_domains(
     }
     children
 }
+//}}}
 
+//{{{ fun: split_axis
 fn split_axis(
     interval: Interval,
     midpoint: Option<f64>,
@@ -388,7 +413,9 @@ fn split_axis(
         None => vec![interval],
     }
 }
+//}}}
 
+//{{{ fun: converged
 fn converged(
     result: &AdaptiveResult,
     tolerance: Tolerance,
@@ -396,7 +423,9 @@ fn converged(
     result.error_estimate()
         <= tolerance.absolute_value() + tolerance.relative_value() * result.integral().abs()
 }
+//}}}
 
+//{{{ fun: midpoint
 fn midpoint(interval: Interval) -> f64 {
     let direct = interval.lower() + 0.5 * (interval.upper() - interval.lower());
     if direct.is_finite() {
@@ -405,8 +434,11 @@ fn midpoint(interval: Interval) -> f64 {
         0.5 * interval.lower() + 0.5 * interval.upper()
     }
 }
+//}}}
 
+//{{{ fun: adaptive_quad
 /// Builds a two-dimensional adaptive quadrature and integrates `f` once.
+/// See the [one-shot example](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/#one-shot-helpers).
 ///
 /// Use [`AdaptiveQuadrature::builder`] to configure the consuming `builder`. Construct an
 /// [`AdaptiveQuadrature`] directly when the same configuration will be reused.
@@ -414,6 +446,10 @@ fn midpoint(interval: Interval) -> f64 {
 /// # Errors
 ///
 /// Returns [`OptionsError`] if either axis rule pair is invalid or adaptive integration fails.
+///
+/// # Panics
+///
+/// Panics raised by `f` are not caught and propagate to the caller.
 pub fn adaptive_quad<F>(
     f: F,
     builder: Builder,
@@ -423,3 +459,4 @@ where
 {
     Ok(builder.build()?.integrate(f)?)
 }
+//}}}

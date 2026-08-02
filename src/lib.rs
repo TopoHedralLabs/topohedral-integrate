@@ -3,6 +3,47 @@
 //! The crate provides fixed Gauss quadrature rules and adaptive algorithms built from pairs of
 //! fixed rules. The dimensionality is encoded in the names of the public types and functions.
 //!
+//! # Fixed quadrature
+//!
+//! ```
+//! use topohedral_integrate::{
+//!     FixedQuadrature1d, GaussFamily, GaussRule, Interval, PolynomialDegree,
+//! };
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let domain = Interval::new(-1.0, 1.0)?;
+//! let degree = PolynomialDegree::new(5)?;
+//! let rule = GaussRule::for_degree(GaussFamily::Legendre, degree)?;
+//! let quadrature = FixedQuadrature1d::builder(domain, rule).build();
+//! let integral = quadrature.integrate(|x| x * x)?;
+//! assert!((integral - 2.0 / 3.0).abs() < 1e-12);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Adaptive quadrature
+//!
+//! ```
+//! use topohedral_integrate::{
+//!     AdaptiveQuadrature1d, GaussFamily, GaussRule, Interval, PolynomialDegree, Tolerance,
+//! };
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let domain = Interval::new(0.0, 1.0)?;
+//! let low = GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(3)?)?;
+//! let high = GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(9)?)?;
+//! let tolerance = Tolerance::new(1e-10, 1e-10)?;
+//! let quadrature = AdaptiveQuadrature1d::builder(domain, low, high, tolerance).build()?;
+//! let result = quadrature.integrate(|x| x.exp())?;
+//! assert!((result.integral() - (std::f64::consts::E - 1.0)).abs() < 1e-9);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! The optional `serde` feature serializes validated values, generated rules, nodes, errors, and
+//! adaptive results. Deserialization re-applies constructor validation. The optional `trace`
+//! feature enables instrumentation without enabling terminal colours.
+//!
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports

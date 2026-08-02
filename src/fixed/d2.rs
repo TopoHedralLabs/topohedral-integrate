@@ -1,11 +1,17 @@
 //! Fixed tensor-product quadrature for two-dimensional real-valued functions.
 
+//{{{ crate imports
 use super::d1;
 use crate::config::{validate_subdivisions, ConfigError, Rectangle};
 use crate::gauss::GaussRule;
 use crate::integration::{EvaluationPoint, IntegrationError};
+//}}}
 
+//{{{ collection: TensorRule
 /// A tensor product of independent Gaussian rules on the `u` and `v` axes.
+///
+/// See the [two-dimensional fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/#two-dimensional-entry-point).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorRule {
     u: GaussRule,
@@ -31,9 +37,14 @@ impl TensorRule {
         &self.v
     }
 }
+//}}}
 
+//{{{ collection: Node
 /// A mapped point and weight for two-dimensional fixed quadrature.
+///
+/// See the [fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/).
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Node {
     u: f64,
@@ -61,7 +72,42 @@ impl Node {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Node {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct Representation {
+            u: f64,
+            v: f64,
+            weight: f64,
+        }
+
+        let representation = <Representation as serde::Deserialize>::deserialize(deserializer)?;
+        if !representation.u.is_finite()
+            || !representation.v.is_finite()
+            || !representation.weight.is_finite()
+            || representation.weight <= 0.0
+        {
+            return Err(serde::de::Error::custom(
+                "quadrature node requires finite coordinates and a positive finite weight",
+            ));
+        }
+        Ok(Self {
+            u: representation.u,
+            v: representation.v,
+            weight: representation.weight,
+        })
+    }
+}
+//}}}
+
+//{{{ collection: Builder
 /// Consuming builder for a two-dimensional fixed quadrature.
+///
+/// See the [two-dimensional fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/#two-dimensional-entry-point).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Builder {
     domain: Rectangle,
@@ -129,8 +175,12 @@ impl Builder {
         }
     }
 }
+//}}}
 
+//{{{ collection: Quadrature
 /// A reusable two-dimensional fixed tensor-product quadrature.
+///
+/// See the [two-dimensional fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/#two-dimensional-entry-point).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Quadrature {
     domain: Rectangle,
@@ -194,6 +244,10 @@ impl Quadrature {
     /// # Errors
     ///
     /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+    ///
+    /// # Panics
+    ///
+    /// Panics raised by `f` are not caught and propagate to the caller.
     pub fn integrate<F>(
         &self,
         mut f: F,
@@ -223,6 +277,10 @@ impl Quadrature {
     /// # Errors
     ///
     /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+    ///
+    /// # Panics
+    ///
+    /// Panics raised by `f` are not caught and propagate to the caller.
     pub fn integrate_over<F>(
         &self,
         domain: Rectangle,
@@ -259,12 +317,19 @@ impl<'a> IntoIterator for &'a Quadrature {
         self.iter()
     }
 }
+//}}}
 
+//{{{ fun: fixed_quad
 /// Builds a two-dimensional fixed quadrature and integrates `f` once.
+/// See the [two-dimensional example](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/#two-dimensional-entry-point).
 ///
 /// # Errors
 ///
 /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+///
+/// # Panics
+///
+/// Panics raised by `f` are not caught and propagate to the caller.
 pub fn fixed_quad<F>(
     f: F,
     builder: Builder,
@@ -274,3 +339,4 @@ where
 {
     builder.build().integrate(f)
 }
+//}}}

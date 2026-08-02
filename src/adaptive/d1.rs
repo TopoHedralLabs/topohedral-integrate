@@ -1,11 +1,14 @@
 //! Adaptive quadrature for one-dimensional real-valued functions.
 
+//{{{ crate imports
 use crate::config::{validate_subdivisions, ConfigError, ConfigIssue, RuleAxis};
 use crate::fixed::d1::Quadrature as FixedQuadrature;
 use crate::{
     AdaptiveResult, GaussRule, IntegrationError, Interval, OptionsError, RefinementDepth, Tolerance,
 };
+//}}}
 
+//{{{ struct: Region
 #[derive(Clone, Copy, Debug)]
 struct Region {
     domain: Interval,
@@ -13,8 +16,12 @@ struct Region {
     high_estimate: f64,
     error_estimate: f64,
 }
+//}}}
 
+//{{{ collection: Builder
 /// Consuming builder for one-dimensional adaptive quadrature.
+///
+/// See the [adaptive-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Builder {
     domain: Interval,
@@ -80,8 +87,12 @@ impl Builder {
         })
     }
 }
+//}}}
 
+//{{{ collection: AdaptiveQuadrature
 /// Reusable one-dimensional adaptive quadrature configuration.
+///
+/// See the [one-dimensional adaptive example](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/#one-dimensional-integration).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdaptiveQuadrature {
     domain: Interval,
@@ -151,6 +162,10 @@ impl AdaptiveQuadrature {
     /// [`IntegrationError::MaxDepthReached`] if the tolerance cannot be met within the configured
     /// depth, or [`IntegrationError::NonProgressingInterval`] if a floating-point midpoint is not
     /// strictly interior.
+    ///
+    /// # Panics
+    ///
+    /// Panics raised by `f` are not caught and propagate to the caller.
     ///
     /// # Examples
     ///
@@ -267,7 +282,9 @@ impl AdaptiveQuadrature {
         }
     }
 }
+//}}}
 
+//{{{ fun: evaluate_region
 fn evaluate_region<F>(
     domain: Interval,
     depth: usize,
@@ -287,7 +304,9 @@ where
         error_estimate: (high_estimate - low_estimate).abs(),
     })
 }
+//}}}
 
+//{{{ fun: converged
 fn converged(
     result: &AdaptiveResult,
     tolerance: Tolerance,
@@ -295,7 +314,9 @@ fn converged(
     result.error_estimate()
         <= tolerance.absolute_value() + tolerance.relative_value() * result.integral().abs()
 }
+//}}}
 
+//{{{ fun: midpoint
 fn midpoint(interval: Interval) -> f64 {
     let direct = interval.lower() + 0.5 * (interval.upper() - interval.lower());
     if direct.is_finite() {
@@ -304,8 +325,11 @@ fn midpoint(interval: Interval) -> f64 {
         0.5 * interval.lower() + 0.5 * interval.upper()
     }
 }
+//}}}
 
+//{{{ fun: adaptive_quad
 /// Builds a one-dimensional adaptive quadrature and integrates `f` once.
+/// See the [one-shot example](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/#one-shot-helpers).
 ///
 /// Use [`AdaptiveQuadrature::builder`] to configure the consuming `builder`. Construct an
 /// [`AdaptiveQuadrature`] directly when the same configuration will be reused.
@@ -313,6 +337,10 @@ fn midpoint(interval: Interval) -> f64 {
 /// # Errors
 ///
 /// Returns [`OptionsError`] if the rule pair is invalid or adaptive integration fails.
+///
+/// # Panics
+///
+/// Panics raised by `f` are not caught and propagate to the caller.
 pub fn adaptive_quad<F>(
     f: F,
     builder: Builder,
@@ -322,3 +350,4 @@ where
 {
     Ok(builder.build()?.integrate(f)?)
 }
+//}}}

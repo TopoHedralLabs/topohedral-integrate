@@ -127,7 +127,7 @@ fn integrate_monomial(
 }
 
 fn exact_monomial_integral(degree: usize) -> f64 {
-    if degree.is_multiple_of(2) {
+    if degree % 2 == 0 {
         2.0 / (degree + 1) as f64
     } else {
         0.0

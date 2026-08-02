@@ -1,11 +1,21 @@
 //! Results and errors produced while evaluating integrals.
 
+//{{{ crate imports
 use crate::{Interval, Rectangle};
+//}}}
 
+//{{{ std imports
 use std::fmt;
+//}}}
+//{{{ dep imports
 use thiserror::Error;
+//}}}
 
+//{{{ collection: EvaluationPoint
 /// Coordinates at which an integrand was evaluated.
+///
+/// See the [integration-error guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/#nodes-and-integration-errors).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum EvaluationPoint {
     /// A one-dimensional coordinate.
@@ -30,8 +40,13 @@ impl fmt::Display for EvaluationPoint {
         }
     }
 }
+//}}}
 
+//{{{ collection: AdaptiveResult
 /// Value and diagnostics produced by adaptive integration.
+///
+/// See the [adaptive-results guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/#results-and-convergence-failures).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdaptiveResult {
     integral: f64,
@@ -75,8 +90,13 @@ impl AdaptiveResult {
         self.evaluation_count
     }
 }
+//}}}
 
+//{{{ enum: IntegrationError
 /// An error encountered while evaluating an integral.
+///
+/// See the [adaptive-results guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/adaptive-quadrature/#results-and-convergence-failures).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, Error, PartialEq)]
 pub enum IntegrationError {
     /// The integrand returned NaN or infinity.
@@ -112,3 +132,4 @@ pub enum IntegrationError {
         partial_result: AdaptiveResult,
     },
 }
+//}}}
