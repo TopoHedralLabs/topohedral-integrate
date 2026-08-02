@@ -2,7 +2,7 @@
 
 The public API is flat: Gaussian rules, validated configuration values, fixed
 quadratures, and adaptive entry points are all available at the crate root.
-Dimensional types use explicit `1D` and `2D` suffixes.
+Dimensional types use explicit `1d` and `2d` suffixes.
 
 The API is divided into four areas:
 
@@ -29,8 +29,8 @@ and can be reused for multiple functions.
 
 [Adaptive quadrature](adaptive-quadrature.md) repeatedly subdivides intervals
 or rectangles, refining the largest-error region until the global
-absolute-plus-relative tolerance is met. `AdaptiveQuadrature1D` and
-`AdaptiveQuadrature2D` return a shared `AdaptiveResult` with the high-order
+absolute-plus-relative tolerance is met. `AdaptiveQuadrature1d` and
+`AdaptiveQuadrature2d` return a shared `AdaptiveResult` with the high-order
 integral and diagnostic information. The `adaptive_quad_1d` and
 `adaptive_quad_2d` helpers provide the corresponding one-shot interface.
 
@@ -41,13 +41,13 @@ builder validates subdivisions before constructing the reusable quadrature:
 
 ```rust
 use topohedral_integrate::{
-    FixedQuadrature1D, GaussFamily, GaussRule, Interval, PolynomialDegree,
+    FixedQuadrature1d, GaussFamily, GaussRule, Interval, PolynomialDegree,
 };
 
 let domain = Interval::new(-1.0, 1.0).unwrap();
 let degree = PolynomialDegree::new(9).unwrap();
 let rule = GaussRule::for_degree(GaussFamily::Legendre, degree).unwrap();
-let quadrature = FixedQuadrature1D::builder(domain, rule)
+let quadrature = FixedQuadrature1d::builder(domain, rule)
     .subdivisions([0.0])
     .unwrap()
     .build();

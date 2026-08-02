@@ -1,8 +1,8 @@
 use approx::assert_abs_diff_eq;
 use topohedral_integrate::{
-    adaptive_quad_1d, adaptive_quad_2d, AdaptiveQuadrature1D, AdaptiveQuadrature2D, AxisDepths,
+    adaptive_quad_1d, adaptive_quad_2d, AdaptiveQuadrature1d, AdaptiveQuadrature2d, AxisDepths,
     ConfigIssue, EvaluationPoint, GaussFamily, GaussRule, IntegrationError, Interval, OptionsError,
-    PolynomialDegree, Rectangle, RefinementDepth, RuleAxis, TensorRule2D, Tolerance,
+    PolynomialDegree, Rectangle, RefinementDepth, RuleAxis, TensorRule2d, Tolerance,
 };
 
 fn rule(degree: usize) -> GaussRule {
@@ -13,14 +13,14 @@ fn rule(degree: usize) -> GaussRule {
     .unwrap()
 }
 
-fn tensor_rule(degree: usize) -> TensorRule2D {
+fn tensor_rule(degree: usize) -> TensorRule2d {
     let rule = rule(degree);
-    TensorRule2D::new(rule.clone(), rule)
+    TensorRule2d::new(rule.clone(), rule)
 }
 
 #[test]
 fn one_dimensional_builder_validates_actual_rule_exactness() {
-    let error = AdaptiveQuadrature1D::builder(
+    let error = AdaptiveQuadrature1d::builder(
         Interval::new(-1.0, 1.0).unwrap(),
         rule(2),
         rule(3),
@@ -41,7 +41,7 @@ fn one_dimensional_builder_validates_actual_rule_exactness() {
 
 #[test]
 fn one_dimensional_free_function_builds_and_integrates_once() {
-    let builder = AdaptiveQuadrature1D::builder(
+    let builder = AdaptiveQuadrature1d::builder(
         Interval::new(-1.0, 1.0).unwrap(),
         rule(3),
         rule(5),
@@ -55,7 +55,7 @@ fn one_dimensional_free_function_builds_and_integrates_once() {
 
 #[test]
 fn one_dimensional_free_function_retains_structured_configuration_error() {
-    let builder = AdaptiveQuadrature1D::builder(
+    let builder = AdaptiveQuadrature1d::builder(
         Interval::new(-1.0, 1.0).unwrap(),
         rule(2),
         rule(3),
@@ -78,7 +78,7 @@ fn one_dimensional_free_function_retains_structured_configuration_error() {
 #[test]
 fn one_dimensional_result_uses_high_rule_and_global_tolerance() {
     let tolerance = Tolerance::new(1e-10, 1e-10).unwrap();
-    let quadrature = AdaptiveQuadrature1D::builder(
+    let quadrature = AdaptiveQuadrature1d::builder(
         Interval::new(0.0, 30.0).unwrap(),
         rule(5),
         rule(11),
@@ -99,7 +99,7 @@ fn one_dimensional_result_uses_high_rule_and_global_tolerance() {
 #[test]
 fn one_dimensional_relative_only_tolerance_converges_globally() {
     let tolerance = Tolerance::relative(1e-10).unwrap();
-    let quadrature = AdaptiveQuadrature1D::builder(
+    let quadrature = AdaptiveQuadrature1d::builder(
         Interval::new(-1.0, 1.0).unwrap(),
         rule(3),
         rule(7),
@@ -117,7 +117,7 @@ fn one_dimensional_relative_only_tolerance_converges_globally() {
 
 #[test]
 fn one_dimensional_integrand_may_mutate_state() {
-    let quadrature = AdaptiveQuadrature1D::builder(
+    let quadrature = AdaptiveQuadrature1d::builder(
         Interval::new(-1.0, 1.0).unwrap(),
         rule(3),
         rule(5),
@@ -142,7 +142,7 @@ fn one_dimensional_integrand_may_mutate_state() {
 
 #[test]
 fn one_dimensional_initial_subdivisions_are_terminal_regions() {
-    let quadrature = AdaptiveQuadrature1D::builder(
+    let quadrature = AdaptiveQuadrature1d::builder(
         Interval::new(-2.0, 2.0).unwrap(),
         rule(3),
         rule(5),
@@ -164,12 +164,12 @@ fn one_dimensional_depth_zero_returns_high_order_partial_result() {
     let domain = Interval::new(-1.0, 1.0).unwrap();
     let low = rule(1);
     let high = rule(3);
-    let expected_high = topohedral_integrate::FixedQuadrature1D::builder(domain, high.clone())
+    let expected_high = topohedral_integrate::FixedQuadrature1d::builder(domain, high.clone())
         .build()
         .integrate(|x| x.powi(4))
         .unwrap();
     let quadrature =
-        AdaptiveQuadrature1D::builder(domain, low, high, Tolerance::absolute(1e-15).unwrap())
+        AdaptiveQuadrature1d::builder(domain, low, high, Tolerance::absolute(1e-15).unwrap())
             .max_depth(RefinementDepth::new(0))
             .build()
             .unwrap();
@@ -190,7 +190,7 @@ fn one_dimensional_nonprogressing_midpoint_is_reported() {
     let lower = 1.0f64;
     let upper = f64::from_bits(lower.to_bits() + 1);
     let domain = Interval::new(lower, upper).unwrap();
-    let quadrature = AdaptiveQuadrature1D::builder(
+    let quadrature = AdaptiveQuadrature1d::builder(
         domain,
         rule(1),
         rule(3),
@@ -211,7 +211,7 @@ fn one_dimensional_nonprogressing_midpoint_is_reported() {
 
 #[test]
 fn one_dimensional_nonfinite_integrand_is_propagated() {
-    let quadrature = AdaptiveQuadrature1D::builder(
+    let quadrature = AdaptiveQuadrature1d::builder(
         Interval::new(-1.0, 1.0).unwrap(),
         rule(1),
         rule(3),
@@ -231,10 +231,10 @@ fn one_dimensional_nonfinite_integrand_is_propagated() {
 
 #[test]
 fn two_dimensional_builder_validates_each_axis_exactness() {
-    let error = AdaptiveQuadrature2D::builder(
+    let error = AdaptiveQuadrature2d::builder(
         Rectangle::from_bounds(-1.0, 1.0, -1.0, 1.0).unwrap(),
-        TensorRule2D::new(rule(2), rule(5)),
-        TensorRule2D::new(rule(3), rule(4)),
+        TensorRule2d::new(rule(2), rule(5)),
+        TensorRule2d::new(rule(3), rule(4)),
         Tolerance::absolute(1e-8).unwrap(),
     )
     .build()
@@ -259,7 +259,7 @@ fn two_dimensional_builder_validates_each_axis_exactness() {
 
 #[test]
 fn two_dimensional_free_function_builds_and_integrates_once() {
-    let builder = AdaptiveQuadrature2D::builder(
+    let builder = AdaptiveQuadrature2d::builder(
         Rectangle::from_bounds(0.0, 1.0, 0.0, 1.0).unwrap(),
         tensor_rule(3),
         tensor_rule(5),
@@ -273,7 +273,7 @@ fn two_dimensional_free_function_builds_and_integrates_once() {
 
 #[test]
 fn two_dimensional_polynomial_uses_one_typed_region() {
-    let quadrature = AdaptiveQuadrature2D::builder(
+    let quadrature = AdaptiveQuadrature2d::builder(
         Rectangle::from_bounds(-1.0, 1.0, -1.0, 1.0).unwrap(),
         tensor_rule(3),
         tensor_rule(5),
@@ -298,7 +298,7 @@ fn two_dimensional_polynomial_uses_one_typed_region() {
 
 #[test]
 fn two_dimensional_splits_both_available_axes() {
-    let quadrature = AdaptiveQuadrature2D::builder(
+    let quadrature = AdaptiveQuadrature2d::builder(
         Rectangle::from_bounds(-1.0, 1.0, -1.0, 1.0).unwrap(),
         tensor_rule(1),
         tensor_rule(3),
@@ -318,7 +318,7 @@ fn two_dimensional_splits_both_available_axes() {
 
 #[test]
 fn two_dimensional_splits_only_axis_with_remaining_depth() {
-    let quadrature = AdaptiveQuadrature2D::builder(
+    let quadrature = AdaptiveQuadrature2d::builder(
         Rectangle::from_bounds(-1.0, 1.0, -1.0, 1.0).unwrap(),
         tensor_rule(1),
         tensor_rule(3),
@@ -336,7 +336,7 @@ fn two_dimensional_splits_only_axis_with_remaining_depth() {
 
 #[test]
 fn two_dimensional_depth_exhaustion_contains_partial_result() {
-    let quadrature = AdaptiveQuadrature2D::builder(
+    let quadrature = AdaptiveQuadrature2d::builder(
         Rectangle::from_bounds(-1.0, 1.0, -1.0, 1.0).unwrap(),
         tensor_rule(1),
         tensor_rule(3),
@@ -365,7 +365,7 @@ fn two_dimensional_nonprogressing_midpoint_is_reported() {
         Interval::new(lower, upper).unwrap(),
         Interval::new(-1.0, 1.0).unwrap(),
     );
-    let quadrature = AdaptiveQuadrature2D::builder(
+    let quadrature = AdaptiveQuadrature2d::builder(
         rectangle,
         tensor_rule(1),
         tensor_rule(3),
@@ -387,7 +387,7 @@ fn two_dimensional_nonprogressing_midpoint_is_reported() {
 
 #[test]
 fn two_dimensional_initial_subdivisions_form_a_grid() {
-    let quadrature = AdaptiveQuadrature2D::builder(
+    let quadrature = AdaptiveQuadrature2d::builder(
         Rectangle::from_bounds(-1.0, 1.0, -1.0, 1.0).unwrap(),
         tensor_rule(3),
         tensor_rule(5),

@@ -19,14 +19,14 @@ five-point Gauss-Legendre rule:
 
 ```rust
 use topohedral_integrate::{
-    FixedQuadrature1D, GaussFamily, GaussRule, Interval, PolynomialDegree,
+    FixedQuadrature1d, GaussFamily, GaussRule, Interval, PolynomialDegree,
 };
 
 let domain = Interval::new(-1.0, 1.0).expect("valid interval");
 let degree = PolynomialDegree::new(9).expect("supported degree");
 let rule = GaussRule::for_degree(GaussFamily::Legendre, degree)
     .expect("rule generation succeeds");
-let quadrature = FixedQuadrature1D::builder(domain, rule).build();
+let quadrature = FixedQuadrature1d::builder(domain, rule).build();
 let integral = quadrature
     .integrate(|x: f64| x.powi(2))
     .expect("finite integrand");

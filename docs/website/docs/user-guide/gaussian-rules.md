@@ -68,8 +68,8 @@ let rules = GaussRuleSet::through_degree(
     GaussFamily::Legendre,
     PolynomialDegree::new(90)?,
 )?;
-let rule = rules.get_by_point_count(PointCount::new(37)?)?;
-let same_rule = rules.get_for_degree(PolynomialDegree::new(72)?)?;
+let rule = rules.rule_by_point_count(PointCount::new(37)?)?;
+let same_rule = rules.rule_for_degree(PolynomialDegree::new(72)?)?;
 
 assert_eq!(rule.family(), GaussFamily::Legendre);
 assert_eq!(rule.point_count().value(), 37);
@@ -92,7 +92,7 @@ errors are retained in the cache and returned deterministically on every call.
 use topohedral_integrate::{lobatto_rules, PointCount};
 
 let rules = lobatto_rules()?;
-let rule = rules.get_by_point_count(PointCount::new(5)?)?;
+let rule = rules.rule_by_point_count(PointCount::new(5)?)?;
 assert_eq!(rule.points().first(), Some(&-1.0));
 assert_eq!(rule.points().last(), Some(&1.0));
 # Ok::<(), Box<dyn std::error::Error>>(())

@@ -10,7 +10,12 @@ description = "A crate for numerical integration."
 publish = ["cloudsmith"]
 
 [features]
-enable_trace = ["topohedral-tracing/enable_trace"]
+default = []
+trace = [
+    "dep:topohedral-tracing",
+    "topohedral-linalg/enable_trace",
+    "topohedral-tracing/enable_trace",
+]
 
 [dependencies]
 serde = {version = "1.0.203", features = ["derive"]}
@@ -18,13 +23,12 @@ serde_json = "1.0.117"
 approx = "0.5.1"
 log = "0.4.29"
 thiserror = "2.0.17"
-topohedral-tracing = {version = "0.1.1", registry = "cloudsmith"}
+topohedral-tracing = {version = "0.1.1", registry = "cloudsmith", optional = true}
 topohedral-linalg = {version = "4.1.0", registry = "cloudsmith"}
 
 
 [dev-dependencies]
 criterion = "0.8.2"
-ctor = "0.6.3"
 
 [[bench]]
 name = "fixed_quadrature"

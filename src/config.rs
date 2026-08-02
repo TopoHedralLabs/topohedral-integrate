@@ -716,7 +716,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{validate_subdivisions, ConfigIssue, Interval};
 
     #[test]
     fn subdivision_validation_accepts_any_iterator_and_normalizes_empty_input() {

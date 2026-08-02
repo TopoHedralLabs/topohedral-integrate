@@ -1,106 +1,8 @@
 //! Fixed quadrature for one-dimensional real-valued functions.
 
-use crate::common::OptionsError;
-use crate::config::{
-    validate_subdivisions, ConfigError, ConfigIssue, Interval, PolynomialDegree, RuleAxis,
-};
-use crate::gauss::{legendre_rules, lobatto_rules, GaussFamily, GaussRule, MAX_DEGREE};
+use crate::config::{validate_subdivisions, Interval};
+use crate::gauss::GaussRule;
 use crate::integration::{EvaluationPoint, IntegrationError};
-
-/// Legacy configuration for one-dimensional fixed quadrature.
-///
-/// Every value is validated by [`FixedQuad::new`] rather than on assignment, so the fields are
-/// private and reached through accessors. New code should prefer
-/// [`crate::FixedQuadrature1D::builder`].
-#[derive(Clone, Debug, PartialEq)]
-pub struct FixedQuadOpts {
-    gauss_type: GaussFamily,
-    order: usize,
-    bounds: (f64, f64),
-    subdiv: Vec<f64>,
-}
-
-impl FixedQuadOpts {
-    /// Describes a rule of the requested family and minimum polynomial exactness on `bounds`.
-    pub const fn new(
-        gauss_type: GaussFamily,
-        order: usize,
-        bounds: (f64, f64),
-    ) -> Self {
-        Self {
-            gauss_type,
-            order,
-            bounds,
-            subdiv: Vec::new(),
-        }
-    }
-
-    /// Replaces the interior subdivision points. Empty input means no subdivision.
-    #[must_use]
-    pub fn with_subdivisions<I>(
-        mut self,
-        points: I,
-    ) -> Self
-    where
-        I: IntoIterator<Item = f64>,
-    {
-        self.subdiv = points.into_iter().collect();
-        self
-    }
-
-    /// Returns the Gauss quadrature family used on every subinterval.
-    pub const fn gauss_type(&self) -> GaussFamily {
-        self.gauss_type
-    }
-
-    /// Returns the minimum polynomial exactness requested for the rule.
-    pub const fn order(&self) -> usize {
-        self.order
-    }
-
-    /// Returns the integration interval as `(lower, upper)`.
-    pub const fn bounds(&self) -> (f64, f64) {
-        self.bounds
-    }
-
-    /// Returns the requested interior subdivision points.
-    pub fn subdivisions(&self) -> &[f64] {
-        &self.subdiv
-    }
-
-    fn validate(&self) -> Result<(Interval, Vec<f64>), ConfigError> {
-        let mut issues = Vec::new();
-        if self.order > MAX_DEGREE {
-            issues.push(ConfigIssue::UnsupportedRuleDegree {
-                axis: RuleAxis::OneDimensional,
-                family: self.gauss_type,
-                degree: self.order,
-                maximum: MAX_DEGREE,
-            });
-        }
-
-        let domain = match Interval::new(self.bounds.0, self.bounds.1) {
-            Ok(domain) => Some(domain),
-            Err(error) => {
-                issues.extend_from_slice(error.issues());
-                None
-            }
-        };
-
-        let mut subdivisions = Vec::new();
-        if let Some(domain) = domain {
-            match validate_subdivisions(domain, self.subdiv.iter().copied()) {
-                Ok(points) => subdivisions = points,
-                Err(error) => issues.extend_from_slice(error.issues()),
-            }
-        }
-
-        match domain {
-            Some(domain) if issues.is_empty() => Ok((domain, subdivisions)),
-            _ => Err(ConfigError::from_issues(issues)),
-        }
-    }
-}
 
 /// A mapped point and weight for one-dimensional fixed quadrature.
 #[repr(C)]
@@ -153,9 +55,9 @@ impl Builder {
     }
 
     /// Maps the reference rule onto the configured domain and subdivisions.
-    pub fn build(self) -> FixedQuad {
+    pub fn build(self) -> Quadrature {
         let nodes = mapped_nodes(self.domain, &self.rule, &self.subdivisions);
-        FixedQuad {
+        Quadrature {
             domain: self.domain,
             rule: self.rule,
             subdivisions: self.subdivisions,
@@ -166,14 +68,14 @@ impl Builder {
 
 /// A reusable one-dimensional fixed quadrature.
 #[derive(Clone, Debug, PartialEq)]
-pub struct FixedQuad {
+pub struct Quadrature {
     domain: Interval,
     rule: GaussRule,
     subdivisions: Vec<f64>,
     nodes: Box<[Node]>,
 }
 
-impl FixedQuad {
+impl Quadrature {
     /// Starts a consuming builder for `domain` and `rule`.
     pub fn builder(
         domain: Interval,
@@ -184,20 +86,6 @@ impl FixedQuad {
             rule,
             subdivisions: Vec::new(),
         }
-    }
-
-    /// Builds a reusable fixed quadrature from the legacy options structure.
-    pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
-        let (domain, subdivisions) = opts.validate()?;
-        let degree = PolynomialDegree::new_unchecked(opts.order);
-        let rule = match opts.gauss_type {
-            GaussFamily::Legendre => legendre_rules()?.get_for_degree(degree)?.clone(),
-            GaussFamily::Lobatto => lobatto_rules()?.get_for_degree(degree)?.clone(),
-        };
-
-        Ok(Self::builder(domain, rule)
-            .subdivisions(subdivisions)?
-            .build())
     }
 
     /// Returns the configured integration domain.
@@ -275,7 +163,7 @@ impl FixedQuad {
     }
 }
 
-impl<'a> IntoIterator for &'a FixedQuad {
+impl<'a> IntoIterator for &'a Quadrature {
     type Item = &'a Node;
     type IntoIter = std::slice::Iter<'a, Node>;
 
@@ -334,18 +222,22 @@ pub(super) fn mapped_nodes(
     nodes.into_boxed_slice()
 }
 
-/// Integrates `f` once using the legacy options structure.
+/// Builds a one-dimensional fixed quadrature and integrates `f` once.
+///
+/// # Errors
+///
+/// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
 pub fn fixed_quad<F>(
-    mut f: F,
-    opts: FixedQuadOpts,
-) -> Result<f64, OptionsError>
+    f: F,
+    builder: Builder,
+) -> Result<f64, IntegrationError>
 where
     F: FnMut(f64) -> f64,
 {
-    Ok(FixedQuad::new(opts)?.integrate(&mut f)?)
+    builder.build().integrate(f)
 }
 
-impl From<GaussRule> for FixedQuad {
+impl From<GaussRule> for Quadrature {
     fn from(rule: GaussRule) -> Self {
         let (lower, upper) = rule.family().range();
         Self::builder(Interval::new_unchecked(lower, upper), rule).build()

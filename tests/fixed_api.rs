@@ -1,8 +1,8 @@
 use approx::assert_abs_diff_eq;
 use std::mem::{align_of, size_of};
 use topohedral_integrate::{
-    EvaluationPoint, FixedNode1D, FixedNode2D, FixedQuadrature1D, FixedQuadrature2D, GaussFamily,
-    GaussRule, IntegrationError, Interval, PointCount, PolynomialDegree, Rectangle, TensorRule2D,
+    EvaluationPoint, FixedNode1d, FixedNode2d, FixedQuadrature1d, FixedQuadrature2d, GaussFamily,
+    GaussRule, IntegrationError, Interval, PointCount, PolynomialDegree, Rectangle, TensorRule2d,
 };
 
 fn degree(value: usize) -> PolynomialDegree {
@@ -15,17 +15,17 @@ fn count(value: usize) -> PointCount {
 
 #[test]
 fn typed_nodes_have_the_same_compact_layout_as_packed_f64_values() {
-    assert_eq!(size_of::<FixedNode1D>(), 2 * size_of::<f64>());
-    assert_eq!(align_of::<FixedNode1D>(), align_of::<f64>());
-    assert_eq!(size_of::<FixedNode2D>(), 3 * size_of::<f64>());
-    assert_eq!(align_of::<FixedNode2D>(), align_of::<f64>());
+    assert_eq!(size_of::<FixedNode1d>(), 2 * size_of::<f64>());
+    assert_eq!(align_of::<FixedNode1d>(), align_of::<f64>());
+    assert_eq!(size_of::<FixedNode2d>(), 3 * size_of::<f64>());
+    assert_eq!(align_of::<FixedNode2d>(), align_of::<f64>());
 }
 
 #[test]
 fn one_dimensional_builder_maps_and_iterates_typed_nodes() {
     let domain = Interval::new(2.0, 6.0).unwrap();
     let rule = GaussRule::for_degree(GaussFamily::Legendre, degree(1)).unwrap();
-    let quadrature = FixedQuadrature1D::builder(domain, rule)
+    let quadrature = FixedQuadrature1d::builder(domain, rule)
         .subdivisions([3.0, 4.5])
         .unwrap()
         .build();
@@ -46,7 +46,7 @@ fn one_dimensional_builder_maps_and_iterates_typed_nodes() {
 fn one_dimensional_integration_accepts_fn_mut_and_reports_nonfinite_values() {
     let domain = Interval::new(-1.0, 1.0).unwrap();
     let rule = GaussRule::for_degree(GaussFamily::Legendre, degree(9)).unwrap();
-    let quadrature = FixedQuadrature1D::builder(domain, rule).build();
+    let quadrature = FixedQuadrature1d::builder(domain, rule).build();
     let mut evaluations = 0;
 
     let integral = quadrature
@@ -74,7 +74,7 @@ fn one_dimensional_integration_accepts_fn_mut_and_reports_nonfinite_values() {
 #[test]
 fn integrate_over_remaps_subdivisions_proportionally() {
     let rule = GaussRule::with_point_count(GaussFamily::Lobatto, count(2)).unwrap();
-    let quadrature = FixedQuadrature1D::builder(Interval::new(0.0, 10.0).unwrap(), rule)
+    let quadrature = FixedQuadrature1d::builder(Interval::new(0.0, 10.0).unwrap(), rule)
         .subdivisions([2.0, 7.0])
         .unwrap()
         .build();
@@ -100,11 +100,11 @@ fn two_dimensional_builder_maps_typed_tensor_nodes() {
         Interval::new(0.0, 2.0).unwrap(),
         Interval::new(-1.0, 1.0).unwrap(),
     );
-    let tensor_rule = TensorRule2D::new(
+    let tensor_rule = TensorRule2d::new(
         GaussRule::for_degree(GaussFamily::Legendre, degree(3)).unwrap(),
         GaussRule::for_degree(GaussFamily::Legendre, degree(3)).unwrap(),
     );
-    let quadrature = FixedQuadrature2D::builder(rectangle, tensor_rule)
+    let quadrature = FixedQuadrature2d::builder(rectangle, tensor_rule)
         .subdivisions([1.0], std::iter::empty())
         .unwrap()
         .build();
@@ -131,11 +131,11 @@ fn two_dimensional_integration_reports_the_evaluation_coordinates() {
         Interval::new(-1.0, 1.0).unwrap(),
         Interval::new(-1.0, 1.0).unwrap(),
     );
-    let tensor_rule = TensorRule2D::new(
+    let tensor_rule = TensorRule2d::new(
         GaussRule::for_degree(GaussFamily::Legendre, degree(1)).unwrap(),
         GaussRule::for_degree(GaussFamily::Legendre, degree(1)).unwrap(),
     );
-    let quadrature = FixedQuadrature2D::builder(rectangle, tensor_rule).build();
+    let quadrature = FixedQuadrature2d::builder(rectangle, tensor_rule).build();
 
     let error = quadrature.integrate(|_, _| f64::INFINITY).unwrap_err();
     assert!(matches!(

@@ -1,133 +1,9 @@
 //! Fixed tensor-product quadrature for two-dimensional real-valued functions.
 
 use super::d1;
-use crate::common::OptionsError;
-use crate::config::{
-    validate_subdivisions, ConfigError, ConfigIssue, PolynomialDegree, Rectangle, RuleAxis,
-};
-use crate::gauss::{legendre_rules, lobatto_rules, GaussFamily, GaussRule, MAX_DEGREE};
+use crate::config::{validate_subdivisions, ConfigError, Rectangle};
+use crate::gauss::GaussRule;
 use crate::integration::{EvaluationPoint, IntegrationError};
-
-/// Legacy configuration for two-dimensional fixed quadrature.
-///
-/// Every value is validated by [`FixedQuad::new`] rather than on assignment, so the fields are
-/// private and reached through accessors. New code should prefer
-/// [`crate::FixedQuadrature2D::builder`].
-#[derive(Clone, Debug, PartialEq)]
-pub struct FixedQuadOpts {
-    gauss_type: (GaussFamily, GaussFamily),
-    order: (usize, usize),
-    bounds: (f64, f64, f64, f64),
-    u_subdiv: Vec<f64>,
-    v_subdiv: Vec<f64>,
-}
-
-impl FixedQuadOpts {
-    /// Describes a tensor-product rule of the requested families and minimum polynomial
-    /// exactnesses on `bounds`, given as `(u_min, u_max, v_min, v_max)`.
-    pub const fn new(
-        gauss_type: (GaussFamily, GaussFamily),
-        order: (usize, usize),
-        bounds: (f64, f64, f64, f64),
-    ) -> Self {
-        Self {
-            gauss_type,
-            order,
-            bounds,
-            u_subdiv: Vec::new(),
-            v_subdiv: Vec::new(),
-        }
-    }
-
-    /// Replaces the interior subdivision coordinates on both axes. Empty input on either axis
-    /// means no subdivision on that axis.
-    #[must_use]
-    pub fn with_subdivisions<U, V>(
-        mut self,
-        u_points: U,
-        v_points: V,
-    ) -> Self
-    where
-        U: IntoIterator<Item = f64>,
-        V: IntoIterator<Item = f64>,
-    {
-        self.u_subdiv = u_points.into_iter().collect();
-        self.v_subdiv = v_points.into_iter().collect();
-        self
-    }
-
-    /// Returns the Gauss quadrature families in `(u, v)` order.
-    pub const fn gauss_type(&self) -> (GaussFamily, GaussFamily) {
-        self.gauss_type
-    }
-
-    /// Returns the minimum polynomial exactnesses in `(u, v)` order.
-    pub const fn order(&self) -> (usize, usize) {
-        self.order
-    }
-
-    /// Returns the rectangular bounds as `(u_min, u_max, v_min, v_max)`.
-    pub const fn bounds(&self) -> (f64, f64, f64, f64) {
-        self.bounds
-    }
-
-    /// Returns the requested `u`-axis subdivision coordinates.
-    pub fn u_subdivisions(&self) -> &[f64] {
-        &self.u_subdiv
-    }
-
-    /// Returns the requested `v`-axis subdivision coordinates.
-    pub fn v_subdivisions(&self) -> &[f64] {
-        &self.v_subdiv
-    }
-
-    fn validate(&self) -> Result<(Rectangle, Vec<f64>, Vec<f64>), ConfigError> {
-        let mut issues = Vec::new();
-        for (axis, family, degree) in [
-            (RuleAxis::U, self.gauss_type.0, self.order.0),
-            (RuleAxis::V, self.gauss_type.1, self.order.1),
-        ] {
-            if degree > MAX_DEGREE {
-                issues.push(ConfigIssue::UnsupportedRuleDegree {
-                    axis,
-                    family,
-                    degree,
-                    maximum: MAX_DEGREE,
-                });
-            }
-        }
-
-        let domain = match Rectangle::from_bounds(
-            self.bounds.0,
-            self.bounds.1,
-            self.bounds.2,
-            self.bounds.3,
-        ) {
-            Ok(domain) => Some(domain),
-            Err(error) => {
-                issues.extend_from_slice(error.issues());
-                None
-            }
-        };
-
-        let (mut u_subdivisions, mut v_subdivisions) = (Vec::new(), Vec::new());
-        if let Some(domain) = domain {
-            match validate_subdivisions(domain.u(), self.u_subdiv.iter().copied()) {
-                Ok(points) => u_subdivisions = points,
-                Err(error) => issues.extend_from_slice(error.issues()),
-            }
-            match validate_subdivisions(domain.v(), self.v_subdiv.iter().copied()) {
-                Ok(points) => v_subdivisions = points,
-                Err(error) => issues.extend_from_slice(error.issues()),
-            }
-        }
-
-        match domain {
-            Some(domain) if issues.is_empty() => Ok((domain, u_subdivisions, v_subdivisions)),
-            _ => Err(ConfigError::from_issues(issues)),
-        }
-    }
-}
 
 /// A tensor product of independent Gaussian rules on the `u` and `v` axes.
 #[derive(Clone, Debug, PartialEq)]
@@ -229,7 +105,7 @@ impl Builder {
     }
 
     /// Maps the tensor rule onto the configured rectangle and subdivisions.
-    pub fn build(self) -> FixedQuad {
+    pub fn build(self) -> Quadrature {
         let u_nodes = d1::mapped_nodes(self.domain.u(), self.rule.u(), &self.u_subdivisions);
         let v_nodes = d1::mapped_nodes(self.domain.v(), self.rule.v(), &self.v_subdivisions);
         let mut nodes = Vec::with_capacity(u_nodes.len() * v_nodes.len());
@@ -244,7 +120,7 @@ impl Builder {
             }
         }
 
-        FixedQuad {
+        Quadrature {
             domain: self.domain,
             rule: self.rule,
             u_subdivisions: self.u_subdivisions,
@@ -256,7 +132,7 @@ impl Builder {
 
 /// A reusable two-dimensional fixed tensor-product quadrature.
 #[derive(Clone, Debug, PartialEq)]
-pub struct FixedQuad {
+pub struct Quadrature {
     domain: Rectangle,
     rule: TensorRule,
     u_subdivisions: Vec<f64>,
@@ -264,7 +140,7 @@ pub struct FixedQuad {
     nodes: Box<[Node]>,
 }
 
-impl FixedQuad {
+impl Quadrature {
     /// Starts a consuming builder for `domain` and `rule`.
     pub fn builder(
         domain: Rectangle,
@@ -276,16 +152,6 @@ impl FixedQuad {
             u_subdivisions: Vec::new(),
             v_subdivisions: Vec::new(),
         }
-    }
-
-    /// Builds a reusable fixed quadrature from the legacy options structure.
-    pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
-        let (domain, u_subdivisions, v_subdivisions) = opts.validate()?;
-        let u_rule = cached_rule(opts.gauss_type.0, opts.order.0)?;
-        let v_rule = cached_rule(opts.gauss_type.1, opts.order.1)?;
-        Ok(Self::builder(domain, TensorRule::new(u_rule, v_rule))
-            .subdivisions(u_subdivisions, v_subdivisions)?
-            .build())
     }
 
     /// Returns the configured rectangular domain.
@@ -385,7 +251,7 @@ impl FixedQuad {
     }
 }
 
-impl<'a> IntoIterator for &'a FixedQuad {
+impl<'a> IntoIterator for &'a Quadrature {
     type Item = &'a Node;
     type IntoIter = std::slice::Iter<'a, Node>;
 
@@ -394,24 +260,17 @@ impl<'a> IntoIterator for &'a FixedQuad {
     }
 }
 
-fn cached_rule(
-    family: GaussFamily,
-    degree: usize,
-) -> Result<GaussRule, crate::RuleError> {
-    let degree = PolynomialDegree::new_unchecked(degree);
-    match family {
-        GaussFamily::Legendre => Ok(legendre_rules()?.get_for_degree(degree)?.clone()),
-        GaussFamily::Lobatto => Ok(lobatto_rules()?.get_for_degree(degree)?.clone()),
-    }
-}
-
-/// Integrates `f` once using the legacy options structure.
+/// Builds a two-dimensional fixed quadrature and integrates `f` once.
+///
+/// # Errors
+///
+/// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
 pub fn fixed_quad<F>(
-    mut f: F,
-    opts: FixedQuadOpts,
-) -> Result<f64, OptionsError>
+    f: F,
+    builder: Builder,
+) -> Result<f64, IntegrationError>
 where
     F: FnMut(f64, f64) -> f64,
 {
-    Ok(FixedQuad::new(opts)?.integrate(&mut f)?)
+    builder.build().integrate(f)
 }

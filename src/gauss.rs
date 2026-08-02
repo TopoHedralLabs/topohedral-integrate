@@ -12,7 +12,6 @@ use std::fmt;
 use std::sync::OnceLock;
 //}}}
 //{{{ dep imports
-// use nalgebra as na;
 use thiserror::Error;
 use topohedral_linalg::{DMatrix, SubViewable};
 //}}}
@@ -20,7 +19,7 @@ use topohedral_linalg::{DMatrix, SubViewable};
 //{{{ collection: quadrature
 //{{{ static: MAX_DEGREE
 /// Largest requested polynomial exactness degree included in each cached rule set.
-pub(crate) const MAX_DEGREE: usize = 100;
+const MAX_DEGREE: usize = 100;
 const CACHED_MAXIMUM_DEGREE: PolynomialDegree = PolynomialDegree::new_unchecked(MAX_DEGREE);
 //}}}
 //{{{ static: LEGENDRE_RULES
@@ -224,11 +223,11 @@ impl GaussRuleSet {
     ///
     /// Returns [`RuleError::DegreeOutOfRange`] when `degree` exceeds the maximum requested while
     /// constructing this set.
-    pub fn get_for_degree(
+    pub fn rule_for_degree(
         &self,
         degree: PolynomialDegree,
     ) -> Result<&GaussRule, RuleError> {
-        self.get_for_degree_value(degree.value())
+        self.rule_for_degree_value(degree.value())
     }
 
     /// Returns the stored rule containing exactly `point_count` points.
@@ -237,22 +236,22 @@ impl GaussRuleSet {
     ///
     /// Returns [`RuleError::PointCountOutOfRange`] when `point_count` is not represented by this
     /// set.
-    pub fn get_by_point_count(
+    pub fn rule_by_point_count(
         &self,
         point_count: PointCount,
     ) -> Result<&GaussRule, RuleError> {
-        self.get_by_point_count_value(point_count.value())
+        self.rule_by_point_count_value(point_count.value())
     }
 
-    pub(crate) fn get_for_degree_value(
+    fn rule_for_degree_value(
         &self,
         degree: usize,
     ) -> Result<&GaussRule, RuleError> {
         validate_degree(degree, self.maximum_degree.value())?;
-        self.get_by_point_count_value(self.family.point_count_for_degree(degree))
+        self.rule_by_point_count_value(self.family.point_count_for_degree(degree))
     }
 
-    fn get_by_point_count_value(
+    fn rule_by_point_count_value(
         &self,
         point_count: usize,
     ) -> Result<&GaussRule, RuleError> {
@@ -686,7 +685,7 @@ fn legendre(
 //{{{ mod: tests
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{golub_welsch, legendre_recursion_coeffs, GaussFamily, GaussRule, RuleError};
 
     #[test]
     fn invalid_backend_output_is_a_generation_error() {

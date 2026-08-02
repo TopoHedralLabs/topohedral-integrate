@@ -1,7 +1,7 @@
 //! Adaptive tensor-product quadrature for two-dimensional real-valued functions.
 
 use crate::config::{validate_subdivisions, ConfigError, ConfigIssue, RuleAxis};
-use crate::fixed::d2::{FixedQuad, TensorRule};
+use crate::fixed::d2::{Quadrature as FixedQuadrature, TensorRule};
 use crate::{
     AdaptiveResult, AxisDepths, IntegrationError, Interval, OptionsError, Rectangle, Tolerance,
 };
@@ -94,8 +94,8 @@ impl Builder {
 
         Ok(AdaptiveQuadrature {
             domain: self.domain,
-            low_rule: FixedQuad::builder(self.domain, self.low_rule).build(),
-            high_rule: FixedQuad::builder(self.domain, self.high_rule).build(),
+            low_rule: FixedQuadrature::builder(self.domain, self.low_rule).build(),
+            high_rule: FixedQuadrature::builder(self.domain, self.high_rule).build(),
             tolerance: self.tolerance,
             max_depth: self.max_depth,
             u_subdivisions: self.u_subdivisions,
@@ -108,8 +108,8 @@ impl Builder {
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdaptiveQuadrature {
     domain: Rectangle,
-    low_rule: FixedQuad,
-    high_rule: FixedQuad,
+    low_rule: FixedQuadrature,
+    high_rule: FixedQuadrature,
     tolerance: Tolerance,
     max_depth: AxisDepths,
     u_subdivisions: Vec<f64>,
@@ -186,17 +186,17 @@ impl AdaptiveQuadrature {
     ///
     /// ```
     /// use topohedral_integrate::{
-    ///     AdaptiveQuadrature2D, GaussFamily, GaussRule, PolynomialDegree, Rectangle,
-    ///     TensorRule2D, Tolerance,
+    ///     AdaptiveQuadrature2d, GaussFamily, GaussRule, PolynomialDegree, Rectangle,
+    ///     TensorRule2d, Tolerance,
     /// };
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let low = GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(3)?)?;
     /// let high = GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(7)?)?;
-    /// let quadrature = AdaptiveQuadrature2D::builder(
+    /// let quadrature = AdaptiveQuadrature2d::builder(
     ///     Rectangle::from_bounds(0.0, 1.0, 0.0, 1.0)?,
-    ///     TensorRule2D::new(low.clone(), low),
-    ///     TensorRule2D::new(high.clone(), high),
+    ///     TensorRule2d::new(low.clone(), low),
+    ///     TensorRule2d::new(high.clone(), high),
     ///     Tolerance::absolute(1e-10)?,
     /// )
     /// .build()?;
@@ -331,8 +331,8 @@ fn evaluate_region<F>(
     domain: Rectangle,
     u_depth: usize,
     v_depth: usize,
-    low_rule: &FixedQuad,
-    high_rule: &FixedQuad,
+    low_rule: &FixedQuadrature,
+    high_rule: &FixedQuadrature,
     f: &mut F,
 ) -> Result<Region, IntegrationError>
 where

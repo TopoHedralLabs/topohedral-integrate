@@ -56,12 +56,12 @@ the rule constructor performs the remaining family-specific check.
 
 Validation failures return `ConfigError`. Its `issues()` method exposes every
 structured `ConfigIssue` found during validation, including the rejected
-values. Multi-axis and compatibility-option validation retains every issue it
-can evaluate rather than collapsing them into one string. Error messages are
+values. Multi-axis validation retains every issue it can evaluate rather than
+collapsing them into one string. Error messages are
 concise lowercase summaries without trailing punctuation; callers should
 match `ConfigIssue` variants when they need programmatic diagnostics.
 
-One-shot compatibility operations can also generate a Gaussian rule or
-evaluate an integrand. Their `OptionsError` transparently wraps `ConfigError`,
-`RuleError`, or `IntegrationError`; validation failures are always carried by
-the `Config` variant without loss of structured issues.
+The adaptive one-shot functions accept validated builders. Their
+`OptionsError` transparently wraps `ConfigError` or `IntegrationError`;
+validation failures are carried by the `Config` variant without loss of
+structured issues.

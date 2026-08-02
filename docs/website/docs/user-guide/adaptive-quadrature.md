@@ -13,12 +13,12 @@ is satisfied.
 
 ## One-dimensional integration
 
-Construct an `AdaptiveQuadrature1D` from a validated interval, low and high
+Construct an `AdaptiveQuadrature1d` from a validated interval, low and high
 Gaussian rules, and a `Tolerance`:
 
 ```rust
 use topohedral_integrate::{
-    AdaptiveQuadrature1D, GaussFamily, GaussRule, Interval, PolynomialDegree,
+    AdaptiveQuadrature1d, GaussFamily, GaussRule, Interval, PolynomialDegree,
     RefinementDepth, Tolerance,
 };
 
@@ -34,7 +34,7 @@ let high = GaussRule::for_degree(
 )
 .unwrap();
 let tolerance = Tolerance::new(1e-10, 1e-10).unwrap();
-let quadrature = AdaptiveQuadrature1D::builder(domain, low, high, tolerance)
+let quadrature = AdaptiveQuadrature1d::builder(domain, low, high, tolerance)
     .max_depth(RefinementDepth::new(20))
     .subdivisions([-1.0])
     .unwrap()
@@ -56,13 +56,13 @@ depth of zero evaluates those regions once without permitting refinement.
 
 ## Two-dimensional integration
 
-`AdaptiveQuadrature2D` accepts tensor-product rules and independent maximum
+`AdaptiveQuadrature2d` accepts tensor-product rules and independent maximum
 depths for the two axes:
 
 ```rust
 use topohedral_integrate::{
-    AdaptiveQuadrature2D, AxisDepths, GaussFamily, GaussRule, PolynomialDegree,
-    Rectangle, TensorRule2D, Tolerance,
+    AdaptiveQuadrature2d, AxisDepths, GaussFamily, GaussRule, PolynomialDegree,
+    Rectangle, TensorRule2d, Tolerance,
 };
 
 let domain = Rectangle::from_bounds(0.0, 1.0, 0.0, 1.0).unwrap();
@@ -76,10 +76,10 @@ let high = GaussRule::for_degree(
     PolynomialDegree::new(7).unwrap(),
 )
 .unwrap();
-let quadrature = AdaptiveQuadrature2D::builder(
+let quadrature = AdaptiveQuadrature2d::builder(
     domain,
-    TensorRule2D::new(low.clone(), low),
-    TensorRule2D::new(high.clone(), high),
+    TensorRule2d::new(low.clone(), low),
+    TensorRule2d::new(high.clone(), high),
     Tolerance::absolute(1e-10).unwrap(),
 )
 .max_depth(AxisDepths::from_values(10, 10))
@@ -101,7 +101,7 @@ that will be used once. Pass the configured builder without calling `build`:
 
 ```rust
 use topohedral_integrate::{
-    adaptive_quad_1d, AdaptiveQuadrature1D, GaussFamily, GaussRule, Interval,
+    adaptive_quad_1d, AdaptiveQuadrature1d, GaussFamily, GaussRule, Interval,
     PolynomialDegree, Tolerance,
 };
 
@@ -115,7 +115,7 @@ let high = GaussRule::for_degree(
     PolynomialDegree::new(7).unwrap(),
 )
 .unwrap();
-let builder = AdaptiveQuadrature1D::builder(
+let builder = AdaptiveQuadrature1d::builder(
     Interval::new(-1.0, 1.0).unwrap(),
     low,
     high,
@@ -125,7 +125,7 @@ let result = adaptive_quad_1d(|x| x * x, builder).unwrap();
 assert!((result.integral() - 2.0 / 3.0).abs() < 1e-12);
 ```
 
-Building an `AdaptiveQuadrature1D` or `AdaptiveQuadrature2D` remains preferable
+Building an `AdaptiveQuadrature1d` or `AdaptiveQuadrature2d` remains preferable
 when its validated rules and configuration will be reused.
 
 ## Results and convergence failures

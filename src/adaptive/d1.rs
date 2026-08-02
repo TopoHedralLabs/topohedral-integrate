@@ -1,7 +1,7 @@
 //! Adaptive quadrature for one-dimensional real-valued functions.
 
 use crate::config::{validate_subdivisions, ConfigError, ConfigIssue, RuleAxis};
-use crate::fixed::d1::FixedQuad;
+use crate::fixed::d1::Quadrature as FixedQuadrature;
 use crate::{
     AdaptiveResult, GaussRule, IntegrationError, Interval, OptionsError, RefinementDepth, Tolerance,
 };
@@ -72,8 +72,8 @@ impl Builder {
 
         Ok(AdaptiveQuadrature {
             domain: self.domain,
-            low_rule: FixedQuad::builder(self.domain, self.low_rule).build(),
-            high_rule: FixedQuad::builder(self.domain, self.high_rule).build(),
+            low_rule: FixedQuadrature::builder(self.domain, self.low_rule).build(),
+            high_rule: FixedQuadrature::builder(self.domain, self.high_rule).build(),
             tolerance: self.tolerance,
             max_depth: self.max_depth,
             subdivisions: self.subdivisions,
@@ -85,8 +85,8 @@ impl Builder {
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdaptiveQuadrature {
     domain: Interval,
-    low_rule: FixedQuad,
-    high_rule: FixedQuad,
+    low_rule: FixedQuadrature,
+    high_rule: FixedQuadrature,
     tolerance: Tolerance,
     max_depth: RefinementDepth,
     subdivisions: Vec<f64>,
@@ -156,13 +156,13 @@ impl AdaptiveQuadrature {
     ///
     /// ```
     /// use topohedral_integrate::{
-    ///     AdaptiveQuadrature1D, GaussFamily, GaussRule, Interval, PolynomialDegree, Tolerance,
+    ///     AdaptiveQuadrature1d, GaussFamily, GaussRule, Interval, PolynomialDegree, Tolerance,
     /// };
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let low = GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(3)?)?;
     /// let high = GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(7)?)?;
-    /// let quadrature = AdaptiveQuadrature1D::builder(
+    /// let quadrature = AdaptiveQuadrature1d::builder(
     ///     Interval::new(-1.0, 1.0)?,
     ///     low,
     ///     high,
@@ -271,8 +271,8 @@ impl AdaptiveQuadrature {
 fn evaluate_region<F>(
     domain: Interval,
     depth: usize,
-    low_rule: &FixedQuad,
-    high_rule: &FixedQuad,
+    low_rule: &FixedQuadrature,
+    high_rule: &FixedQuadrature,
     f: &mut F,
 ) -> Result<Region, IntegrationError>
 where

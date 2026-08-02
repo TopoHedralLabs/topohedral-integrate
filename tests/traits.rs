@@ -8,12 +8,12 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 
 use topohedral_integrate::{
-    AdaptiveQuadrature1D, AdaptiveQuadrature2D, AdaptiveQuadratureBuilder1D,
-    AdaptiveQuadratureBuilder2D, AdaptiveResult, AxisDepths, ConfigError, ConfigIssue,
-    EvaluationPoint, FixedNode1D, FixedNode2D, FixedQuadOpts1D, FixedQuadOpts2D, FixedQuadrature1D,
-    FixedQuadrature2D, FixedQuadratureBuilder1D, FixedQuadratureBuilder2D, GaussFamily, GaussRule,
-    GaussRuleSet, IntegrationError, Interval, OptionsError, PointCount, PolynomialDegree,
-    Rectangle, RefinementDepth, RuleAxis, RuleError, TensorRule2D, Tolerance,
+    AdaptiveQuadrature1d, AdaptiveQuadrature2d, AdaptiveQuadratureBuilder1d,
+    AdaptiveQuadratureBuilder2d, AdaptiveResult, AxisDepths, ConfigError, ConfigIssue,
+    EvaluationPoint, FixedNode1d, FixedNode2d, FixedQuadrature1d, FixedQuadrature2d,
+    FixedQuadratureBuilder1d, FixedQuadratureBuilder2d, GaussFamily, GaussRule, GaussRuleSet,
+    IntegrationError, Interval, OptionsError, PointCount, PolynomialDegree, Rectangle,
+    RefinementDepth, RuleAxis, RuleError, TensorRule2d, Tolerance,
 };
 
 fn assert_send_sync_debug<T: Send + Sync + Debug + 'static>() {}
@@ -56,21 +56,19 @@ fn public_types_are_send_sync_and_debug() {
     assert_send_sync_debug::<OptionsError>();
 
     // Fixed quadrature.
-    assert_send_sync_debug::<FixedNode1D>();
-    assert_send_sync_debug::<FixedNode2D>();
-    assert_send_sync_debug::<TensorRule2D>();
-    assert_send_sync_debug::<FixedQuadOpts1D>();
-    assert_send_sync_debug::<FixedQuadOpts2D>();
-    assert_send_sync_debug::<FixedQuadratureBuilder1D>();
-    assert_send_sync_debug::<FixedQuadratureBuilder2D>();
-    assert_send_sync_debug::<FixedQuadrature1D>();
-    assert_send_sync_debug::<FixedQuadrature2D>();
+    assert_send_sync_debug::<FixedNode1d>();
+    assert_send_sync_debug::<FixedNode2d>();
+    assert_send_sync_debug::<TensorRule2d>();
+    assert_send_sync_debug::<FixedQuadratureBuilder1d>();
+    assert_send_sync_debug::<FixedQuadratureBuilder2d>();
+    assert_send_sync_debug::<FixedQuadrature1d>();
+    assert_send_sync_debug::<FixedQuadrature2d>();
 
     // Adaptive quadrature.
-    assert_send_sync_debug::<AdaptiveQuadratureBuilder1D>();
-    assert_send_sync_debug::<AdaptiveQuadratureBuilder2D>();
-    assert_send_sync_debug::<AdaptiveQuadrature1D>();
-    assert_send_sync_debug::<AdaptiveQuadrature2D>();
+    assert_send_sync_debug::<AdaptiveQuadratureBuilder1d>();
+    assert_send_sync_debug::<AdaptiveQuadratureBuilder2d>();
+    assert_send_sync_debug::<AdaptiveQuadrature1d>();
+    assert_send_sync_debug::<AdaptiveQuadrature2d>();
 }
 
 /// Discrete enums and newtypes carry the full value-type trait set.
@@ -102,19 +100,17 @@ fn float_bearing_types_are_clone_and_partial_eq() {
     assert_clone_partial_eq::<AdaptiveResult>();
     assert_clone_partial_eq::<IntegrationError>();
     assert_clone_partial_eq::<OptionsError>();
-    assert_clone_partial_eq::<FixedNode1D>();
-    assert_clone_partial_eq::<FixedNode2D>();
-    assert_clone_partial_eq::<TensorRule2D>();
-    assert_clone_partial_eq::<FixedQuadOpts1D>();
-    assert_clone_partial_eq::<FixedQuadOpts2D>();
-    assert_clone_partial_eq::<FixedQuadratureBuilder1D>();
-    assert_clone_partial_eq::<FixedQuadratureBuilder2D>();
-    assert_clone_partial_eq::<FixedQuadrature1D>();
-    assert_clone_partial_eq::<FixedQuadrature2D>();
-    assert_clone_partial_eq::<AdaptiveQuadratureBuilder1D>();
-    assert_clone_partial_eq::<AdaptiveQuadratureBuilder2D>();
-    assert_clone_partial_eq::<AdaptiveQuadrature1D>();
-    assert_clone_partial_eq::<AdaptiveQuadrature2D>();
+    assert_clone_partial_eq::<FixedNode1d>();
+    assert_clone_partial_eq::<FixedNode2d>();
+    assert_clone_partial_eq::<TensorRule2d>();
+    assert_clone_partial_eq::<FixedQuadratureBuilder1d>();
+    assert_clone_partial_eq::<FixedQuadratureBuilder2d>();
+    assert_clone_partial_eq::<FixedQuadrature1d>();
+    assert_clone_partial_eq::<FixedQuadrature2d>();
+    assert_clone_partial_eq::<AdaptiveQuadratureBuilder1d>();
+    assert_clone_partial_eq::<AdaptiveQuadratureBuilder2d>();
+    assert_clone_partial_eq::<AdaptiveQuadrature1d>();
+    assert_clone_partial_eq::<AdaptiveQuadrature2d>();
 
     // Small, allocation-free value types are additionally `Copy`.
     fn assert_copy<T: Copy>() {}
@@ -122,8 +118,8 @@ fn float_bearing_types_are_clone_and_partial_eq() {
     assert_copy::<Rectangle>();
     assert_copy::<Tolerance>();
     assert_copy::<EvaluationPoint>();
-    assert_copy::<FixedNode1D>();
-    assert_copy::<FixedNode2D>();
+    assert_copy::<FixedNode1d>();
+    assert_copy::<FixedNode2d>();
 }
 
 /// Errors and domain values format themselves for end users.

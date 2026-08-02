@@ -1,22 +1,22 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::{hint::black_box, time::Duration};
 use topohedral_integrate::{
-    legendre_rules, FixedQuadrature1D, FixedQuadrature2D, Interval, PolynomialDegree, Rectangle,
-    TensorRule2D,
+    legendre_rules, FixedQuadrature1d, FixedQuadrature2d, Interval, PolynomialDegree, Rectangle,
+    TensorRule2d,
 };
 
 fn subdivisions() -> Vec<f64> {
     (1..16).map(|index| -1.0 + index as f64 / 8.0).collect()
 }
 
-fn fixed_1d(subdivided: bool) -> FixedQuadrature1D {
+fn fixed_1d(subdivided: bool) -> FixedQuadrature1d {
     let degree = PolynomialDegree::new(100).unwrap();
     let rule = legendre_rules()
         .unwrap()
-        .get_for_degree(degree)
+        .rule_for_degree(degree)
         .unwrap()
         .clone();
-    let builder = FixedQuadrature1D::builder(Interval::new(-1.0, 1.0).unwrap(), rule);
+    let builder = FixedQuadrature1d::builder(Interval::new(-1.0, 1.0).unwrap(), rule);
     if subdivided {
         builder.subdivisions(subdivisions()).unwrap().build()
     } else {
@@ -24,11 +24,11 @@ fn fixed_1d(subdivided: bool) -> FixedQuadrature1D {
     }
 }
 
-fn fixed_2d() -> FixedQuadrature2D {
+fn fixed_2d() -> FixedQuadrature2d {
     let degree = PolynomialDegree::new(50).unwrap();
-    let rule = legendre_rules().unwrap().get_for_degree(degree).unwrap();
-    let tensor_rule = TensorRule2D::new(rule.clone(), rule.clone());
-    FixedQuadrature2D::builder(
+    let rule = legendre_rules().unwrap().rule_for_degree(degree).unwrap();
+    let tensor_rule = TensorRule2d::new(rule.clone(), rule.clone());
+    FixedQuadrature2d::builder(
         Rectangle::new(
             Interval::new(-1.0, 1.0).unwrap(),
             Interval::new(-1.0, 1.0).unwrap(),

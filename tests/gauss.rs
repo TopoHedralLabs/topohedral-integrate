@@ -76,7 +76,7 @@ macro_rules! legendre_test {
             let expected = ExpectedData::load();
             let rules = GaussRuleSet::through_degree(GaussFamily::Legendre, degree(90)).unwrap();
             assert_matches_expected(
-                rules.get_by_point_count(count($point_count)).unwrap(),
+                rules.rule_by_point_count(count($point_count)).unwrap(),
                 &expected.legendre.values.$dataset,
             );
         }
@@ -90,7 +90,7 @@ macro_rules! lobatto_test {
             let expected = ExpectedData::load();
             let rules = GaussRuleSet::through_degree(GaussFamily::Lobatto, degree(90)).unwrap();
             assert_matches_expected(
-                rules.get_by_point_count(count($point_count)).unwrap(),
+                rules.rule_by_point_count(count($point_count)).unwrap(),
                 &expected.lobatto.values.$dataset,
             );
         }
@@ -247,8 +247,8 @@ fn rule_set_lookup_and_iteration_borrow_stored_rules() {
         vec![1, 2, 3, 4, 5, 6]
     );
 
-    let by_degree = rules.get_for_degree(degree(10)).unwrap();
-    let by_count = rules.get_by_point_count(count(6)).unwrap();
+    let by_degree = rules.rule_for_degree(degree(10)).unwrap();
+    let by_count = rules.rule_by_point_count(count(6)).unwrap();
     assert!(ptr::eq(by_degree, by_count));
 }
 
@@ -256,7 +256,7 @@ fn rule_set_lookup_and_iteration_borrow_stored_rules() {
 fn cached_rule_sets_are_borrowed_and_complete() {
     let legendre = legendre_rules().unwrap();
     assert!(ptr::eq(legendre, legendre_rules().unwrap()));
-    let legendre_max = legendre.get_for_degree(degree(100)).unwrap();
+    let legendre_max = legendre.rule_for_degree(degree(100)).unwrap();
     assert_eq!(legendre_max.point_count(), count(51));
     assert_rule_structure(legendre_max);
     assert_abs_diff_eq!(
@@ -267,7 +267,7 @@ fn cached_rule_sets_are_borrowed_and_complete() {
 
     let lobatto = lobatto_rules().unwrap();
     assert!(ptr::eq(lobatto, lobatto_rules().unwrap()));
-    let lobatto_max = lobatto.get_for_degree(degree(100)).unwrap();
+    let lobatto_max = lobatto.rule_for_degree(degree(100)).unwrap();
     assert_eq!(lobatto_max.point_count(), count(52));
     assert_rule_structure(lobatto_max);
     assert_abs_diff_eq!(
@@ -323,14 +323,14 @@ fn unsupported_degrees_and_point_counts_return_errors() {
 
     let rules = GaussRuleSet::through_degree(GaussFamily::Lobatto, degree(8)).unwrap();
     assert!(matches!(
-        rules.get_for_degree(degree(9)),
+        rules.rule_for_degree(degree(9)),
         Err(RuleError::DegreeOutOfRange {
             degree: 9,
             maximum: 8,
         })
     ));
     assert!(matches!(
-        rules.get_by_point_count(count(7)),
+        rules.rule_by_point_count(count(7)),
         Err(RuleError::PointCountOutOfRange {
             point_count: 7,
             minimum: 2,

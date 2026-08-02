@@ -1,5 +1,5 @@
 use topohedral_integrate::{
-    AxisDepths, ConfigIssue, FixedQuadOpts1D, FixedQuadrature1D, GaussFamily, Interval, PointCount,
+    AxisDepths, ConfigIssue, FixedQuadrature1d, GaussFamily, GaussRule, Interval, PointCount,
     PolynomialDegree, Rectangle, RefinementDepth, Tolerance,
 };
 
@@ -149,12 +149,15 @@ fn refinement_depth_zero_is_valid_and_defaults_to_32() {
 }
 
 #[test]
-fn legacy_fixed_configuration_uses_strict_subdivision_validation() {
-    let opts = || FixedQuadOpts1D::new(GaussFamily::Legendre, 3, (-1.0, 1.0));
-    let make = |subdiv: Vec<f64>| FixedQuadrature1D::new(opts().with_subdivisions(subdiv));
+fn fixed_builder_uses_strict_subdivision_validation() {
+    let domain = Interval::new(-1.0, 1.0).unwrap();
+    let rule =
+        GaussRule::for_degree(GaussFamily::Legendre, PolynomialDegree::new(3).unwrap()).unwrap();
+    let make =
+        |subdiv: Vec<f64>| FixedQuadrature1d::builder(domain, rule.clone()).subdivisions(subdiv);
 
-    let without_subdivisions = FixedQuadrature1D::new(opts()).unwrap();
-    let empty_subdivisions = make(Vec::new()).unwrap();
+    let without_subdivisions = FixedQuadrature1d::builder(domain, rule.clone()).build();
+    let empty_subdivisions = make(Vec::new()).unwrap().build();
     assert_eq!(without_subdivisions.nodes(), empty_subdivisions.nodes());
 
     for invalid in [

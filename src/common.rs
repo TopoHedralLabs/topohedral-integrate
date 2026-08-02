@@ -1,5 +1,4 @@
-//! Error used by compatibility operations that combine configuration, rule generation, and
-//! integration.
+//! Error used by one-shot operations that combine configuration and integration.
 
 use crate::{config::ConfigError, gauss::RuleError, integration::IntegrationError};
 use thiserror::Error;
