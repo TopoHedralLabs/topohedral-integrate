@@ -1,242 +1,309 @@
-//! This module contains the implementation of fixed quadrature rules for one-dimensional
-//! real-valued functions.
+//! Fixed quadrature for one-dimensional real-valued functions.
 
 //{{{ crate imports
-use crate::common::{append_reason, OptionsError, OptionsVerify};
-use crate::gauss::{get_legendre_points, get_lobatto_points, GaussQuad, GaussQuadType, MAX_ORDER};
+use crate::config::{validate_subdivisions, Interval};
+use crate::gauss::GaussRule;
+use crate::integration::{EvaluationPoint, IntegrationError};
 //}}}
-//{{{ std imports
-//}}}
-//{{{ dep imports
-//}}}
-//--------------------------------------------------------------------------------------------------
 
-//{{{ struct: FixedQuadOpts
-/// Configuration for one-dimensional fixed quadrature.
-#[derive(Debug)]
-pub struct FixedQuadOpts {
-    /// Gauss quadrature family used on every subinterval.
-    pub gauss_type: GaussQuadType,
-    /// Minimum polynomial exactness requested for the rule.
-    pub order: usize,
-    /// Integration interval `(lower, upper)`.
-    pub bounds: (f64, f64),
-    /// Optional interior subdivision points.
-    ///
-    /// Supply points in strictly increasing order to partition the interval into non-overlapping
-    /// subintervals. The constructor validates that every point lies strictly inside `bounds`.
-    pub subdiv: Option<Vec<f64>>,
+//{{{ collection: Node
+/// A mapped point and weight for one-dimensional fixed quadrature.
+///
+/// See the [fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/).
+#[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Node {
+    point: f64,
+    weight: f64,
 }
-//}}}
-//{{{ impl OptionsStruct for FixedQuadOpts
-impl OptionsVerify for FixedQuadOpts {
-    fn is_ok(
-        &self,
-        full: bool,
-    ) -> Result<(), OptionsError> {
-        let mut ok = true;
-        let mut err = if full {
-            OptionsError::InvalidOptionsFull(String::new())
-        } else {
-            OptionsError::InvalidOptionsShort
-        };
 
-        if self.order > MAX_ORDER || self.gauss_type.nqp_from_order(self.order) < 2 {
-            ok = false;
-            append_reason(&mut err, "Quadrature order is not supported");
-        }
+impl Node {
+    /// Returns the evaluation point.
+    #[inline]
+    pub const fn point(&self) -> f64 {
+        self.point
+    }
 
-        if self.bounds.0 > self.bounds.1 {
-            ok = false;
-            append_reason(
-                &mut err,
-                "Bounds invalid, low bound greater than high bound",
-            );
-        }
-
-        if let Some(ref v) = self.subdiv {
-            if v.is_empty() {
-                append_reason(&mut err, "Initial subdivisions invalid, must be non-empty");
-                ok = false
-            }
-            for vi in v {
-                if *vi <= self.bounds.0 || *vi >= self.bounds.1 {
-                    append_reason(
-                        &mut err,
-                        "Initial subdivisions invalid, must be inside bounds",
-                    );
-                    ok = false;
-                    break;
-                }
-            }
-        }
-
-        if ok {
-            Ok(())
-        } else {
-            Err(err)
-        }
+    /// Returns the quadrature weight.
+    #[inline]
+    pub const fn weight(&self) -> f64 {
+        self.weight
     }
 }
-//}}}
-//{{{ struct: FixedQuad
-/// A reusable one-dimensional fixed quadrature rule.
-#[derive(Debug)]
-pub struct FixedQuad {
-    /// The set of points and weights for the fixed quadrature rule. Point `i` and weight `i`
-    /// are stored in `points_weights[2 * i]` and `points_weights[2 * i + 1]`, respectively.
-    pub points_weights: Vec<f64>,
-    /// The options used to construct the rule.
-    pub opts: FixedQuadOpts,
-}
-//}}}
-//{{{ impl: FixedQuad
-impl FixedQuad {
-    //{{{ fun: new
-    /// Builds a reusable fixed quadrature rule from `opts`.
-    ///
-    /// Returns [`OptionsError`] when the options are invalid.
-    pub fn new(opts: FixedQuadOpts) -> Result<Self, OptionsError> {
-        opts.is_ok(true)?;
-        let points_weights = build_points_weights(
-            opts.gauss_type,
-            opts.order,
-            opts.bounds,
-            opts.subdiv.as_deref(),
-        );
 
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Node {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct Representation {
+            point: f64,
+            weight: f64,
+        }
+
+        let representation = <Representation as serde::Deserialize>::deserialize(deserializer)?;
+        if !representation.point.is_finite()
+            || !representation.weight.is_finite()
+            || representation.weight <= 0.0
+        {
+            return Err(serde::de::Error::custom(
+                "quadrature node requires a finite point and positive finite weight",
+            ));
+        }
         Ok(Self {
-            points_weights,
-            opts,
+            point: representation.point,
+            weight: representation.weight,
         })
     }
-    //}}}
-    //{{{ fun: integrate
-    /// Integrates `f` using this rule.
-    ///
-    /// When `bounds` is `Some((lower, upper))`, the stored rule is linearly remapped from its
-    /// configured bounds to that interval. When it is `None`, the configured bounds are used.
-    pub fn integrate<F: Fn(f64) -> f64>(
-        &self,
-        f: &F,
-        bounds: Option<(f64, f64)>,
-    ) -> f64 {
-        let mut integral = 0.0;
-
-        match bounds {
-            Some(bounds) => {
-                let (a, b) = self.opts.bounds;
-                let (c, d) = bounds;
-                let jac = (d - c) / (b - a);
-
-                for i in 0..self.points_weights.len() / 2 {
-                    let xi = c + jac * (self.points_weights[2 * i] - a);
-                    let wi = self.points_weights[2 * i + 1];
-                    integral += f(xi) * wi;
-                }
-                integral *= jac;
-            }
-            None => {
-                for i in 0..self.points_weights.len() / 2 {
-                    let xi = self.points_weights[2 * i];
-                    let wi = self.points_weights[2 * i + 1];
-                    integral += f(xi) * wi;
-                }
-            }
-        }
-        integral
-    }
-    //}}}
-    //{{{ fun: nqp
-    /// Returns the total number of quadrature points, including all subintervals.
-    pub fn nqp(&self) -> usize {
-        self.points_weights.len() / 2
-    }
-    //}}}
 }
 //}}}
-//{{{ fun: build_points_weights
-pub(super) fn build_points_weights(
-    gauss_type: GaussQuadType,
-    order: usize,
-    bounds: (f64, f64),
-    subdiv: Option<&[f64]>,
-) -> Vec<f64> {
-    let gauss_rule = match gauss_type {
-        GaussQuadType::Legendre => get_legendre_points().gauss_quad_from_order(order),
-        GaussQuadType::Lobatto => get_lobatto_points().gauss_quad_from_order(order),
-    };
 
-    let num_divs = subdiv.map_or(1, |subdiv| subdiv.len() + 1);
-    let mut points_weights = Vec::with_capacity(2 * gauss_rule.nqp * num_divs);
-    let (a, b) = gauss_rule.gauss_type.range();
-
-    let mut append_interval = |c: f64, d: f64| {
-        let jac = (d - c) / (b - a);
-        for i in 0..gauss_rule.nqp {
-            let zi = gauss_rule.points[i];
-            let xi = c + jac * (zi - a);
-            let wi = jac * gauss_rule.weights[i];
-            points_weights.push(xi);
-            points_weights.push(wi);
-        }
-    };
-
-    match subdiv {
-        Some(subdiv) => {
-            append_interval(bounds.0, subdiv[0]);
-            for interval in subdiv.windows(2) {
-                append_interval(interval[0], interval[1]);
-            }
-            append_interval(subdiv[subdiv.len() - 1], bounds.1);
-        }
-        None => append_interval(bounds.0, bounds.1),
-    }
-
-    points_weights
-}
-//}}}
-//{{{ fun: fixed_quad
-/// Integrates `f` over `opts.bounds` using a newly constructed fixed rule.
+//{{{ collection: Builder
+/// Consuming builder for a one-dimensional fixed quadrature.
 ///
-/// Returns [`OptionsError`] when `opts` is invalid.
-pub fn fixed_quad<F: Fn(f64) -> f64>(
-    f: &F,
-    opts: FixedQuadOpts,
-) -> Result<f64, OptionsError> {
-    let quad_rule = FixedQuad::new(opts)?;
-    Ok(quad_rule.integrate(f, None))
+/// See the [fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Builder {
+    domain: Interval,
+    rule: GaussRule,
+    subdivisions: Vec<f64>,
 }
-//}}}
-//{{{ impl: From<GaussQuad> for FixedQuad
-/// Converts a Gauss rule on its reference interval into a reusable fixed rule.
-impl From<GaussQuad> for FixedQuad {
-    fn from(value: GaussQuad) -> Self {
-        let nqp = value.nqp;
-        let mut points_weights = Vec::with_capacity(nqp * 2);
 
-        for i in 0..nqp {
-            let xi = value.points[i];
-            let wi = value.weights[i];
-            points_weights.push(xi);
-            points_weights.push(wi);
-        }
+impl Builder {
+    /// Replaces the interior subdivision points.
+    ///
+    /// Empty input means no subdivisions.
+    ///
+    /// # Errors
+    ///
+    /// Returns a configuration error unless every point is finite, strictly increasing, unique,
+    /// and strictly interior to the integration domain.
+    pub fn subdivisions<I>(
+        mut self,
+        points: I,
+    ) -> Result<Self, crate::ConfigError>
+    where
+        I: IntoIterator<Item = f64>,
+    {
+        self.subdivisions = validate_subdivisions(self.domain, points)?;
+        Ok(self)
+    }
 
-        Self {
-            points_weights,
-            opts: FixedQuadOpts {
-                gauss_type: value.gauss_type,
-                order: value.gauss_type.order_from_nqp(nqp),
-                bounds: value.gauss_type.range(),
-                subdiv: None,
-            },
+    /// Maps the reference rule onto the configured domain and subdivisions.
+    pub fn build(self) -> Quadrature {
+        let nodes = mapped_nodes(self.domain, &self.rule, &self.subdivisions);
+        Quadrature {
+            domain: self.domain,
+            rule: self.rule,
+            subdivisions: self.subdivisions,
+            nodes,
         }
     }
 }
 //}}}
 
-//----------------------------------------------------------------------------------------------
-//{{{ mod: tests
-#[cfg(test)]
-mod tests {}
+//{{{ collection: Quadrature
+/// A reusable one-dimensional fixed quadrature.
+///
+/// See the [fixed-quadrature guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Quadrature {
+    domain: Interval,
+    rule: GaussRule,
+    subdivisions: Vec<f64>,
+    nodes: Box<[Node]>,
+}
+
+impl Quadrature {
+    /// Starts a consuming builder for `domain` and `rule`.
+    pub fn builder(
+        domain: Interval,
+        rule: GaussRule,
+    ) -> Builder {
+        Builder {
+            domain,
+            rule,
+            subdivisions: Vec::new(),
+        }
+    }
+
+    /// Returns the configured integration domain.
+    pub const fn domain(&self) -> Interval {
+        self.domain
+    }
+
+    /// Returns the reference Gaussian rule.
+    pub const fn rule(&self) -> &GaussRule {
+        &self.rule
+    }
+
+    /// Returns the validated interior subdivision points.
+    pub fn subdivision_points(&self) -> &[f64] {
+        &self.subdivisions
+    }
+
+    /// Returns all mapped nodes.
+    pub fn nodes(&self) -> &[Node] {
+        &self.nodes
+    }
+
+    /// Iterates over all mapped nodes.
+    pub fn iter(&self) -> std::slice::Iter<'_, Node> {
+        self.nodes.iter()
+    }
+
+    /// Returns the total number of mapped points.
+    pub fn point_count(&self) -> usize {
+        self.nodes.len()
+    }
+
+    /// Integrates over the configured domain.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+    ///
+    /// # Panics
+    ///
+    /// Panics raised by `f` are not caught and propagate to the caller.
+    pub fn integrate<F>(
+        &self,
+        mut f: F,
+    ) -> Result<f64, IntegrationError>
+    where
+        F: FnMut(f64) -> f64,
+    {
+        integrate_nodes(&self.nodes, &mut f)
+    }
+
+    /// Integrates over another interval by proportionally remapping every node and subdivision.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+    ///
+    /// # Panics
+    ///
+    /// Panics raised by `f` are not caught and propagate to the caller.
+    pub fn integrate_over<F>(
+        &self,
+        domain: Interval,
+        mut f: F,
+    ) -> Result<f64, IntegrationError>
+    where
+        F: FnMut(f64) -> f64,
+    {
+        let scale = domain.length() / self.domain.length();
+        let mut integral = 0.0;
+        for node in &self.nodes {
+            let point = domain.lower() + scale * (node.point - self.domain.lower());
+            let value = f(point);
+            if !value.is_finite() {
+                return Err(IntegrationError::NonFiniteIntegrand {
+                    point: EvaluationPoint::OneDimensional(point),
+                    value,
+                });
+            }
+            integral += scale * node.weight * value;
+        }
+        Ok(integral)
+    }
+}
+
+impl<'a> IntoIterator for &'a Quadrature {
+    type Item = &'a Node;
+    type IntoIter = std::slice::Iter<'a, Node>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+//}}}
+
+//{{{ fun: integrate_nodes
+fn integrate_nodes<F>(
+    nodes: &[Node],
+    f: &mut F,
+) -> Result<f64, IntegrationError>
+where
+    F: FnMut(f64) -> f64,
+{
+    let mut integral = 0.0;
+    for node in nodes {
+        let value = f(node.point);
+        if !value.is_finite() {
+            return Err(IntegrationError::NonFiniteIntegrand {
+                point: EvaluationPoint::OneDimensional(node.point),
+                value,
+            });
+        }
+        integral += node.weight * value;
+    }
+    Ok(integral)
+}
+//}}}
+
+//{{{ fun: mapped_nodes
+pub(super) fn mapped_nodes(
+    domain: Interval,
+    rule: &GaussRule,
+    subdivisions: &[f64],
+) -> Box<[Node]> {
+    let point_count = rule.point_count().value();
+    let mut nodes = Vec::with_capacity(point_count * (subdivisions.len() + 1));
+    let (reference_lower, reference_upper) = rule.family().range();
+    let reference_length = reference_upper - reference_lower;
+    let mut lower = domain.lower();
+
+    for upper in subdivisions
+        .iter()
+        .copied()
+        .chain(std::iter::once(domain.upper()))
+    {
+        let scale = (upper - lower) / reference_length;
+        for (&point, &weight) in rule.points().iter().zip(rule.weights()) {
+            nodes.push(Node {
+                point: lower + scale * (point - reference_lower),
+                weight: scale * weight,
+            });
+        }
+        lower = upper;
+    }
+
+    nodes.into_boxed_slice()
+}
+//}}}
+
+//{{{ fun: fixed_quad
+/// Builds a one-dimensional fixed quadrature and integrates `f` once.
+/// See the [one-shot example](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/fixed-quadrature/#one-dimensional-entry-point).
+///
+/// # Errors
+///
+/// Returns [`IntegrationError::NonFiniteIntegrand`] if `f` returns NaN or infinity.
+///
+/// # Panics
+///
+/// Panics raised by `f` are not caught and propagate to the caller.
+pub fn fixed_quad<F>(
+    f: F,
+    builder: Builder,
+) -> Result<f64, IntegrationError>
+where
+    F: FnMut(f64) -> f64,
+{
+    builder.build().integrate(f)
+}
+//}}}
+
+//{{{ impl: From<GaussRule> for Quadrature
+impl From<GaussRule> for Quadrature {
+    fn from(rule: GaussRule) -> Self {
+        let (lower, upper) = rule.family().range();
+        Self::builder(Interval::new_unchecked(lower, upper), rule).build()
+    }
+}
 //}}}

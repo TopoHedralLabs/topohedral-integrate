@@ -5,57 +5,87 @@
 //--------------------------------------------------------------------------------------------------
 
 //{{{ crate imports
+use crate::config::{PointCount, PolynomialDegree};
 //}}}
 //{{{ std imports
+use std::fmt;
 use std::sync::OnceLock;
 //}}}
 //{{{ dep imports
-// use nalgebra as na;
+use thiserror::Error;
 use topohedral_linalg::{DMatrix, SubViewable};
 //}}}
 //--------------------------------------------------------------------------------------------------
 //{{{ collection: quadrature
-//{{{ static: MAX_ORDER
-/// Largest polynomial order included in each cached rule set.
-pub static MAX_ORDER: usize = 100;
+//{{{ static: MAX_DEGREE
+/// Largest requested polynomial exactness degree included in each cached rule set.
+const MAX_DEGREE: usize = 100;
+const CACHED_MAXIMUM_DEGREE: PolynomialDegree = PolynomialDegree::new_unchecked(MAX_DEGREE);
 //}}}
-//{{{ static: LEGENDRE_POINTS
-static LEGENDRE_POINTS: OnceLock<GuassQuadSet> = OnceLock::new();
+//{{{ static: LEGENDRE_RULES
+static LEGENDRE_RULES: OnceLock<Result<GaussRuleSet, RuleError>> = OnceLock::new();
 //}}}
-//{{{ static: LOBATTO_POINTS
-static LOBATTO_POINTS: OnceLock<GuassQuadSet> = OnceLock::new();
+//{{{ static: LOBATTO_RULES
+static LOBATTO_RULES: OnceLock<Result<GaussRuleSet, RuleError>> = OnceLock::new();
 //}}}
-//{{{ fun: get_legendre_points
-/// Returns the lazily initialized Gauss-Legendre rules through the configured maximum order.
-pub fn get_legendre_points() -> &'static GuassQuadSet {
-    LEGENDRE_POINTS.get_or_init(|| GuassQuadSet::new(GaussQuadType::Legendre, MAX_ORDER))
+//{{{ fun: legendre_rules
+/// Returns the cached Gauss-Legendre rules through degree 100.
+///
+/// Repeated calls borrow the same process-wide rule set.
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+///
+/// # Errors
+///
+/// Returns the deterministic rule-generation error recorded while initializing the cache.
+pub fn legendre_rules() -> Result<&'static GaussRuleSet, RuleError> {
+    LEGENDRE_RULES
+        .get_or_init(|| GaussRuleSet::through_degree(GaussFamily::Legendre, CACHED_MAXIMUM_DEGREE))
+        .as_ref()
+        .map_err(Clone::clone)
 }
 //}}}
-//{{{ fun: get_lobatto_points
-/// Returns the lazily initialized Gauss-Lobatto rules through the configured maximum order.
-pub fn get_lobatto_points() -> &'static GuassQuadSet {
-    LOBATTO_POINTS.get_or_init(|| GuassQuadSet::new(GaussQuadType::Lobatto, MAX_ORDER))
+//{{{ fun: lobatto_rules
+/// Returns the cached Gauss-Lobatto rules through degree 100.
+///
+/// Repeated calls borrow the same process-wide rule set.
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+///
+/// # Errors
+///
+/// Returns the deterministic rule-generation error recorded while initializing the cache.
+pub fn lobatto_rules() -> Result<&'static GaussRuleSet, RuleError> {
+    LOBATTO_RULES
+        .get_or_init(|| GaussRuleSet::through_degree(GaussFamily::Lobatto, CACHED_MAXIMUM_DEGREE))
+        .as_ref()
+        .map_err(Clone::clone)
 }
 //}}}
 //}}}
-//{{{ enum: GaussQuadType
+//{{{ enum: GaussFamily
 /// A supported Gauss quadrature family.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum GaussQuadType {
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum GaussFamily {
     /// Gauss-Legendre quadrature on `[-1, 1]` with unit weight.
     Legendre,
     /// Gauss-Lobatto quadrature family on `[-1, 1]`.
     ///
-    /// Rules retrieved from a [`GuassQuadSet`] include both endpoints.
+    /// Rules retrieved from a [`GaussRuleSet`] include both endpoints.
     Lobatto,
 }
 
-impl GaussQuadType {
-    /// Returns the reference-interval integral of the weight used by this family's recurrence.
+impl GaussFamily {
+    /// Returns the reference-interval integral of the weight used by this family's node-generating
+    /// recurrence.
+    ///
+    /// For Lobatto rules, this is the integral of the Jacobi `(1, 1)` weight used to generate the
+    /// interior nodes, not the sum of the final Lobatto weights.
     pub fn weight_integral(&self) -> f64 {
         match self {
             Self::Legendre => 2.0,
-            Self::Lobatto => 1.33333333333333,
+            Self::Lobatto => 4.0 / 3.0,
         }
     }
 
@@ -67,219 +97,491 @@ impl GaussQuadType {
         }
     }
 
-    /// Returns the number of points needed for a rule with at least `order` exactness.
-    pub fn nqp_from_order(
-        &self,
-        order: usize,
+    /// Returns the number of points needed for a rule with at least `degree` polynomial exactness.
+    ///
+    /// An `n`-point Legendre rule has exactness `2 * n - 1`, while an `n`-point Lobatto rule has
+    /// exactness `2 * n - 3`. Consequently, an even requested degree selects a rule whose actual
+    /// exactness is one degree higher.
+    fn point_count_for_degree(
+        self,
+        degree: usize,
     ) -> usize {
         match self {
-            Self::Legendre => order.div_ceil(2),
-            Self::Lobatto => (order + 3) / 2,
+            Self::Legendre => degree / 2 + 1,
+            Self::Lobatto => degree / 2 + 2,
         }
     }
 
-    /// Returns the polynomial exactness of an `nqp`-point rule.
-    ///
-    /// `nqp` must be at least two.
-    pub fn order_from_nqp(
-        &self,
-        nqp: usize,
-    ) -> usize {
+    fn exactness_for_point_count(
+        self,
+        point_count: usize,
+    ) -> Option<usize> {
         match self {
-            Self::Legendre => 2 * nqp - 1,
-            Self::Lobatto => 2 * nqp - 3,
+            Self::Legendre if point_count >= 1 => point_count.checked_mul(2)?.checked_sub(1),
+            Self::Lobatto if point_count >= 2 => point_count.checked_mul(2)?.checked_sub(3),
+            _ => None,
+        }
+    }
+
+    /// Returns the minimum supported point count for this quadrature family.
+    fn minimum_point_count(self) -> usize {
+        match self {
+            Self::Legendre => 1,
+            Self::Lobatto => 2,
+        }
+    }
+
+    fn maximum_point_count(self) -> usize {
+        self.point_count_for_degree(MAX_DEGREE)
+    }
+}
+
+impl fmt::Display for GaussFamily {
+    fn fmt(
+        &self,
+        formatter: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        match self {
+            Self::Legendre => formatter.write_str("legendre"),
+            Self::Lobatto => formatter.write_str("lobatto"),
         }
     }
 }
 //}}}
-//{{{ collection: GuassQuadSet
-//{{{ struct: GuassQuadSet
-/// A collection of Gauss quadrature rules from two points through a maximum order.
+//{{{ enum: RuleError
+/// An error encountered while constructing or retrieving a Gaussian rule.
 ///
-/// The misspelling in this type's name is part of the established public API.
-pub struct GuassQuadSet {
-    /// Orthogonal-polynomial family used by every rule in the set.
-    pub gauss_type: GaussQuadType,
-    /// Largest requested polynomial order represented by the set.
-    pub max_order: usize,
-    /// Smallest number of points in a stored rule.
-    pub min_nqp: usize,
-    /// Largest number of points in a stored rule.
-    pub max_nqp: usize,
-    /// Quadrature points, indexed by `nqp - min_nqp`.
-    pub points: Vec<Vec<f64>>,
-    /// Quadrature weights, indexed by `nqp - min_nqp`.
-    pub weights: Vec<Vec<f64>>,
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Debug, Eq, Error, Hash, PartialEq)]
+pub enum RuleError {
+    /// The requested polynomial degree exceeds the supported maximum.
+    #[error("polynomial degree {degree} exceeds the supported maximum of {maximum}")]
+    DegreeOutOfRange {
+        /// Requested polynomial degree.
+        degree: usize,
+        /// Largest degree available from the constructor or rule set.
+        maximum: usize,
+    },
+    /// The requested point count is outside the supported range.
+    #[error("{family} point count {point_count} is outside supported range {minimum}..={maximum}")]
+    PointCountOutOfRange {
+        /// Quadrature family for which a rule was requested.
+        family: GaussFamily,
+        /// Requested number of points.
+        point_count: usize,
+        /// Smallest supported number of points.
+        minimum: usize,
+        /// Largest supported number of points.
+        maximum: usize,
+    },
+    /// The eigendecomposition backend could not generate a rule.
+    #[error("failed to generate a {family} rule with {point_count} points: {message}")]
+    GenerationFailed {
+        /// Quadrature family being generated.
+        family: GaussFamily,
+        /// Number of points in the requested rule.
+        point_count: usize,
+        /// Deterministic backend diagnostic retained by the cache.
+        message: String,
+    },
 }
 //}}}
-//{{{ impl: GuassQuadSet
-impl GuassQuadSet {
-    /// Builds all rules for `gauss_type` through the requested polynomial `order`.
+//{{{ collection: GaussRuleSet
+//{{{ struct: GaussRuleSet
+/// A collection of Gauss quadrature rules through a maximum requested exactness degree.
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+#[derive(Clone, Debug, PartialEq)]
+pub struct GaussRuleSet {
+    family: GaussFamily,
+    maximum_degree: PolynomialDegree,
+    rules: Vec<GaussRule>,
+}
+//}}}
+//{{{ impl: GaussRuleSet
+impl GaussRuleSet {
+    /// Builds every rule for `family` through the requested polynomial exactness `degree`.
     ///
-    /// `order` must require at least two quadrature points.
-    pub fn new(
-        gauss_type: GaussQuadType,
-        order: usize,
-    ) -> Self {
-        // set the min and max nqp's available for the given quadrature rule
-        let min_nqp = 2;
-        let max_nqp = match gauss_type {
-            GaussQuadType::Legendre => order.div_ceil(2),
-            GaussQuadType::Lobatto => (order + 3) / 2,
-        };
-        // preallocate the points and weights
-        let mut points = vec![vec![0.0; max_nqp]; max_nqp - min_nqp + 1];
-        let mut weights = vec![vec![0.0; max_nqp]; max_nqp - min_nqp + 1];
+    /// # Errors
+    ///
+    /// Returns [`RuleError::DegreeOutOfRange`] when `degree` exceeds 100, or
+    /// [`RuleError::GenerationFailed`] if the eigendecomposition backend fails.
+    pub fn through_degree(
+        family: GaussFamily,
+        degree: PolynomialDegree,
+    ) -> Result<Self, RuleError> {
+        validate_degree(degree.value(), MAX_DEGREE)?;
 
-        match gauss_type {
-            GaussQuadType::Lobatto => {
-                points[0] = vec![-1.0f64, 1.0f64];
-                weights[0] = vec![1.0f64, 1.0f64];
-
-                points[1] = vec![-1.0f64, 0.0f64, 1.0f64];
-                const W1: f64 = 1.0f64 / 3.0f64;
-                const W2: f64 = 4.0f64 / 3.0f64;
-                weights[1] = vec![W1, W2, W1];
-
-                for i in (min_nqp + 2)..max_nqp {
-                    let nqp = i - min_nqp;
-                    let (points_i, _weights_i) =
-                        golub_welsch(nqp, gauss_type, lobatto_recursion_coeffs);
-                    points[i - min_nqp][0] = -1.0f64;
-                    points[i - min_nqp][1..nqp + 1].copy_from_slice(&points_i);
-                    points[i - min_nqp][nqp + 1] = 1.0f64;
-
-                    let ii = i as f64;
-                    let wi = 2.0f64 / (ii * (ii - 1.0f64));
-                    weights[i - min_nqp][0] = wi;
-                    weights[i - min_nqp][1..nqp + 1]
-                        .iter_mut()
-                        .enumerate()
-                        .for_each(|(j, wj)| {
-                            let xj = points_i[j];
-                            let leg_j = legendre(i - 1, xj);
-                            *wj = wi / leg_j.powi(2);
-                        });
-                    weights[i - min_nqp][nqp + 1] = wi;
-                }
-            }
-            GaussQuadType::Legendre => {
-                for i in min_nqp..max_nqp {
-                    let (points_i, weights_i) =
-                        golub_welsch(i, gauss_type, legendre_recursion_coeffs);
-                    points[i - min_nqp] = points_i;
-                    weights[i - min_nqp] = weights_i;
-                }
-            }
+        let minimum = family.minimum_point_count();
+        let maximum = family.point_count_for_degree(degree.value());
+        let mut rules = Vec::with_capacity(maximum - minimum + 1);
+        for point_count in minimum..=maximum {
+            rules.push(build_gauss_rule(family, point_count)?);
         }
 
-        for i in min_nqp..max_nqp + 1 {
-            points[i - min_nqp].resize(i, 0.0);
-            weights[i - min_nqp].resize(i, 0.0);
-        }
-        Self {
-            gauss_type,
-            max_order: order,
-            min_nqp,
-            max_nqp,
-            points,
-            weights,
-        }
+        Ok(Self {
+            family,
+            maximum_degree: degree,
+            rules,
+        })
     }
 
-    /// Returns a clone of the rule containing `nqp` points.
+    /// Returns the smallest stored rule whose exactness is at least `degree`.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `nqp` is outside `min_nqp..=max_nqp`.
-    pub fn gauss_quad_from_nqp(
+    /// Returns [`RuleError::DegreeOutOfRange`] when `degree` exceeds the maximum requested while
+    /// constructing this set.
+    pub fn rule_for_degree(
         &self,
-        nqp: usize,
-    ) -> GaussQuad {
-        debug_assert!(nqp >= self.min_nqp && nqp <= self.max_nqp);
-        let points_nqp = self.points[nqp - self.min_nqp].clone();
-        let weights_nqp = self.weights[nqp - self.min_nqp].clone();
-        GaussQuad::from_points_weights(self.gauss_type, points_nqp, weights_nqp)
+        degree: PolynomialDegree,
+    ) -> Result<&GaussRule, RuleError> {
+        self.rule_for_degree_value(degree.value())
     }
 
-    /// Returns the smallest stored rule whose exactness is at least `order`.
+    /// Returns the stored rule containing exactly `point_count` points.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `order` cannot be represented by a rule in this set.
-    pub fn gauss_quad_from_order(
+    /// Returns [`RuleError::PointCountOutOfRange`] when `point_count` is not represented by this
+    /// set.
+    pub fn rule_by_point_count(
         &self,
-        order: usize,
-    ) -> GaussQuad {
-        debug_assert!(order <= self.max_order);
-        let nqp = match self.gauss_type {
-            GaussQuadType::Legendre => order.div_ceil(2),
-            GaussQuadType::Lobatto => (order + 3) / 2,
-        };
-        self.gauss_quad_from_nqp(nqp)
+        point_count: PointCount,
+    ) -> Result<&GaussRule, RuleError> {
+        self.rule_by_point_count_value(point_count.value())
+    }
+
+    fn rule_for_degree_value(
+        &self,
+        degree: usize,
+    ) -> Result<&GaussRule, RuleError> {
+        validate_degree(degree, self.maximum_degree.value())?;
+        self.rule_by_point_count_value(self.family.point_count_for_degree(degree))
+    }
+
+    fn rule_by_point_count_value(
+        &self,
+        point_count: usize,
+    ) -> Result<&GaussRule, RuleError> {
+        let minimum = self.family.minimum_point_count();
+        let maximum = self.maximum_point_count();
+        if !(minimum..=maximum.value()).contains(&point_count) {
+            return Err(RuleError::PointCountOutOfRange {
+                family: self.family,
+                point_count,
+                minimum,
+                maximum: maximum.value(),
+            });
+        }
+        Ok(&self.rules[point_count - minimum])
+    }
+
+    /// Returns the quadrature family shared by every rule in this set.
+    pub fn family(&self) -> GaussFamily {
+        self.family
+    }
+
+    /// Returns the largest requested polynomial degree represented by this set.
+    pub fn maximum_degree(&self) -> PolynomialDegree {
+        self.maximum_degree
+    }
+
+    /// Returns the smallest point count represented by this set.
+    pub fn minimum_point_count(&self) -> PointCount {
+        PointCount::new_unchecked(self.family.minimum_point_count())
+    }
+
+    /// Returns the largest point count represented by this set.
+    pub fn maximum_point_count(&self) -> PointCount {
+        PointCount::new_unchecked(
+            self.family
+                .point_count_for_degree(self.maximum_degree.value()),
+        )
+    }
+
+    /// Returns the number of rules in this set.
+    pub fn len(&self) -> usize {
+        self.rules.len()
+    }
+
+    /// Returns `true` when this set contains no rules.
+    ///
+    /// Generated rule sets are never empty; this method accompanies [`Self::len`] for collection
+    /// API consistency.
+    pub fn is_empty(&self) -> bool {
+        self.rules.is_empty()
+    }
+
+    /// Iterates over the stored rules in ascending point-count order.
+    pub fn iter(&self) -> std::slice::Iter<'_, GaussRule> {
+        self.rules.iter()
     }
 }
 //}}}
 //}}}
-//{{{ collection: GaussQuad
-//{{{ struct: GaussQuad
+//{{{ collection: GaussRule
+//{{{ struct: GaussRule
 /// A specific Gauss quadrature rule, represented by points and associated weights.
-#[derive(Debug, Clone)]
-pub struct GaussQuad {
-    /// Orthogonal-polynomial family used to construct the rule.
-    pub gauss_type: GaussQuadType,
-    /// Number of quadrature points and weights.
-    pub nqp: usize,
-    /// Quadrature points in ascending order.
-    pub points: Vec<f64>,
-    /// Weight associated with each entry in [`Self::points`].
-    pub weights: Vec<f64>,
+///
+/// See the [Gaussian-rules guide](https://topohedrallabs.github.io/topohedral-integrate/latest/user-guide/gaussian-rules/).
+#[derive(Clone, Debug, PartialEq)]
+pub struct GaussRule {
+    family: GaussFamily,
+    exactness: PolynomialDegree,
+    points: Vec<f64>,
+    weights: Vec<f64>,
 }
 //}}}
-//{{{ impl: GaussQuad
-impl GaussQuad {
+//{{{ impl: GaussRule
+impl GaussRule {
     fn from_points_weights(
-        gauss_type: GaussQuadType,
+        family: GaussFamily,
         points: Vec<f64>,
         weights: Vec<f64>,
-    ) -> Self {
-        debug_assert_eq!(points.len(), weights.len());
-        let nqp = points.len();
-        Self {
-            gauss_type,
-            nqp,
+    ) -> Result<Self, RuleError> {
+        if points.len() != weights.len() {
+            return Err(RuleError::GenerationFailed {
+                family,
+                point_count: points.len(),
+                message: format!(
+                    "backend produced {} points but {} weights",
+                    points.len(),
+                    weights.len()
+                ),
+            });
+        }
+        let exactness = family
+            .exactness_for_point_count(points.len())
+            .ok_or_else(|| RuleError::GenerationFailed {
+                family,
+                point_count: points.len(),
+                message: "backend produced an invalid point count".to_owned(),
+            })?;
+        Ok(Self {
+            family,
+            exactness: PolynomialDegree::new_unchecked(exactness),
             points,
             weights,
-        }
+        })
     }
 
-    /// Constructs a quadrature rule using the number of points derived from `order`.
+    /// Constructs the smallest quadrature rule with at least `degree` polynomial exactness.
     ///
-    /// The requested order must require at least two points.
-    pub fn new(
-        gauss_type: GaussQuadType,
-        order: usize,
-    ) -> Self {
-        let nqp = match gauss_type {
-            GaussQuadType::Legendre => order.div_ceil(2),
-            GaussQuadType::Lobatto => (order + 3) / 2,
-        };
+    /// Legendre rules support one point and Lobatto rules support two points at minimum. An even
+    /// requested degree selects a rule whose actual exactness is one degree higher.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuleError::DegreeOutOfRange`] when `degree` exceeds 100, or
+    /// [`RuleError::GenerationFailed`] if the eigendecomposition backend fails.
+    pub fn for_degree(
+        family: GaussFamily,
+        degree: PolynomialDegree,
+    ) -> Result<Self, RuleError> {
+        validate_degree(degree.value(), MAX_DEGREE)?;
+        build_gauss_rule(family, family.point_count_for_degree(degree.value()))
+    }
 
-        let (points, weights) = match gauss_type {
-            GaussQuadType::Legendre => {
-                let (points, weights) = golub_welsch(nqp, gauss_type, legendre_recursion_coeffs);
-                (points, weights)
-            }
-            GaussQuadType::Lobatto => {
-                let (points, weights) = golub_welsch(nqp, gauss_type, lobatto_recursion_coeffs);
-                (points, weights)
-            }
-        };
+    /// Constructs a quadrature rule containing exactly `point_count` points.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuleError::PointCountOutOfRange`] when the count is outside the supported range,
+    /// or [`RuleError::GenerationFailed`] if the eigendecomposition backend fails.
+    pub fn with_point_count(
+        family: GaussFamily,
+        point_count: PointCount,
+    ) -> Result<Self, RuleError> {
+        validate_point_count(family, point_count.value())?;
+        build_gauss_rule(family, point_count.value())
+    }
 
-        Self::from_points_weights(gauss_type, points, weights)
+    /// Returns the quadrature family used to construct this rule.
+    pub fn family(&self) -> GaussFamily {
+        self.family
+    }
+
+    /// Returns the rule's actual polynomial exactness.
+    pub fn exactness(&self) -> PolynomialDegree {
+        self.exactness
+    }
+
+    /// Returns the number of quadrature points and weights.
+    pub fn point_count(&self) -> PointCount {
+        PointCount::new_unchecked(self.points.len())
+    }
+
+    /// Returns the quadrature points in ascending order.
+    pub fn points(&self) -> &[f64] {
+        &self.points
+    }
+
+    /// Returns the weights corresponding to [`Self::points`].
+    pub fn weights(&self) -> &[f64] {
+        &self.weights
     }
 }
 //}}}
+//}}}
+
+//{{{ mod: serde_impls
+#[cfg(feature = "serde")]
+mod serde_impls {
+    use super::{GaussFamily, GaussRule, GaussRuleSet};
+    use crate::{PointCount, PolynomialDegree};
+    use serde::de::Error as _;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Deserialize, Serialize)]
+    struct RuleRepresentation {
+        family: GaussFamily,
+        point_count: PointCount,
+    }
+
+    impl Serialize for GaussRule {
+        fn serialize<S>(
+            &self,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            RuleRepresentation {
+                family: self.family(),
+                point_count: self.point_count(),
+            }
+            .serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for GaussRule {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let representation = RuleRepresentation::deserialize(deserializer)?;
+            Self::with_point_count(representation.family, representation.point_count)
+                .map_err(D::Error::custom)
+        }
+    }
+
+    #[derive(Deserialize, Serialize)]
+    struct RuleSetRepresentation {
+        family: GaussFamily,
+        maximum_degree: PolynomialDegree,
+    }
+
+    impl Serialize for GaussRuleSet {
+        fn serialize<S>(
+            &self,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            RuleSetRepresentation {
+                family: self.family(),
+                maximum_degree: self.maximum_degree(),
+            }
+            .serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for GaussRuleSet {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let representation = RuleSetRepresentation::deserialize(deserializer)?;
+            Self::through_degree(representation.family, representation.maximum_degree)
+                .map_err(D::Error::custom)
+        }
+    }
+}
+//}}}
+
+//{{{ fun: validate_degree
+fn validate_degree(
+    degree: usize,
+    maximum: usize,
+) -> Result<(), RuleError> {
+    if degree > maximum {
+        Err(RuleError::DegreeOutOfRange { degree, maximum })
+    } else {
+        Ok(())
+    }
+}
+//}}}
+//{{{ fun: validate_point_count
+fn validate_point_count(
+    family: GaussFamily,
+    point_count: usize,
+) -> Result<(), RuleError> {
+    let minimum = family.minimum_point_count();
+    let maximum = family.maximum_point_count();
+    if !(minimum..=maximum).contains(&point_count) {
+        Err(RuleError::PointCountOutOfRange {
+            family,
+            point_count,
+            minimum,
+            maximum,
+        })
+    } else {
+        Ok(())
+    }
+}
+//}}}
+//{{{ fun: build_gauss_rule
+/// Builds a quadrature rule with exactly `point_count` points.
+fn build_gauss_rule(
+    family: GaussFamily,
+    point_count: usize,
+) -> Result<GaussRule, RuleError> {
+    validate_point_count(family, point_count)?;
+
+    let (points, weights) = match family {
+        GaussFamily::Legendre => golub_welsch(
+            family,
+            point_count,
+            point_count,
+            family.weight_integral(),
+            legendre_recursion_coeffs,
+        )?,
+        GaussFamily::Lobatto => {
+            let endpoint_weight = 2.0 / ((point_count as f64) * ((point_count - 1) as f64));
+            let mut points = Vec::with_capacity(point_count);
+            let mut weights = Vec::with_capacity(point_count);
+
+            points.push(-1.0);
+            weights.push(endpoint_weight);
+
+            if point_count > 2 {
+                let interior_count = point_count - 2;
+                let (interior_points, _) = golub_welsch(
+                    family,
+                    point_count,
+                    interior_count,
+                    family.weight_integral(),
+                    lobatto_recursion_coeffs,
+                )?;
+
+                for point in interior_points {
+                    let polynomial = legendre(point_count - 1, point);
+                    points.push(point);
+                    weights.push(endpoint_weight / polynomial.powi(2));
+                }
+            }
+
+            points.push(1.0);
+            weights.push(endpoint_weight);
+            (points, weights)
+        }
+    };
+
+    GaussRule::from_points_weights(family, points, weights)
+}
 //}}}
 //{{{ fun: golub_welsch
 /// Computes the Golub-Welsch algorithm to generate Gauss quadrature points and weights for
@@ -287,8 +589,10 @@ impl GaussQuad {
 ///
 /// # Arguments
 ///
-/// * `nqp` - number of quadrature points
-/// * `gauss_type` - type of quadrature rule
+/// * `family` - type of quadrature rule
+/// * `rule_point_count` - number of points in the final quadrature rule
+/// * `matrix_size` - number of points generated by this eigendecomposition
+/// * `weight_integral` - integral of the recurrence's weight function
 /// * `recurrence_fcn` - recurrence function which provided the recurrence coefficients for the
 ///                      orthogonal polynomial family
 ///
@@ -366,73 +670,59 @@ impl GaussQuad {
 /// \\]
 #[allow(clippy::doc_overindented_list_items)]
 fn golub_welsch<F: Fn(usize) -> (f64, f64, f64)>(
-    nqp: usize,
-    gauss_type: GaussQuadType,
+    family: GaussFamily,
+    rule_point_count: usize,
+    matrix_size: usize,
+    weight_integral: f64,
     recurrence_fcn: F,
-) -> (Vec<f64>, Vec<f64>) {
-    //{{{ init
-    let mut tmat = DMatrix::<f64>::zeros(nqp, nqp);
+) -> Result<(Vec<f64>, Vec<f64>), RuleError> {
+    if matrix_size == 0 {
+        return Err(RuleError::GenerationFailed {
+            family,
+            point_count: rule_point_count,
+            message: "eigendecomposition matrix must be nonempty".to_owned(),
+        });
+    }
 
-    let (mut ai, mut _bi, mut _ci): (f64, f64, f64);
-    let (mut aj, mut _bj, mut cj): (f64, f64, f64);
-    let (mut alpha_i, alpha_j): (f64, f64);
-    let (mut beta_i, mut beta_h): (f64, f64);
-    //}}}
-    //{{{ com: deal with row 0
-    {
-        (ai, _bi, _ci) = recurrence_fcn(0);
-        (aj, _bj, cj) = recurrence_fcn(1);
-        alpha_i = -(_bi / ai);
-        beta_i = (cj / (ai * aj)).sqrt();
-        tmat[(0, 0)] = alpha_i;
-        tmat[(0, 1)] = beta_i;
-        beta_h = beta_i;
-    }
-    //}}}
-    //{{{ com: deal with rows 1 to nqp-2
-    for i in 1..nqp - 1 {
-        (ai, _bi, _ci) = recurrence_fcn(i);
-        (aj, _bj, cj) = recurrence_fcn(i + 1);
-        alpha_i = -(_bi / ai);
-        beta_i = (cj / (ai * aj)).sqrt();
+    let mut tmat = DMatrix::<f64>::zeros(matrix_size, matrix_size);
 
-        tmat[(i, i - 1)] = beta_h;
-        tmat[(i, i)] = alpha_i;
-        tmat[(i, i + 1)] = beta_i;
-        beta_h = beta_i;
+    for i in 0..matrix_size {
+        let (ai, bi, _) = recurrence_fcn(i);
+        tmat[(i, i)] = -(bi / ai);
+
+        if i + 1 < matrix_size {
+            let (aj, _, cj) = recurrence_fcn(i + 1);
+            let beta = (cj / (ai * aj)).sqrt();
+            tmat[(i, i + 1)] = beta;
+            tmat[(i + 1, i)] = beta;
+        }
     }
-    //}}}
-    //{{{ com: deal with row nqp-1
-    {
-        (_, _bi, _ci) = recurrence_fcn(nqp - 1);
-        (aj, _bj, _) = recurrence_fcn(nqp);
-        alpha_j = -(_bj / aj);
-        tmat[(nqp - 1, nqp - 2)] = beta_h;
-        tmat[(nqp - 1, nqp - 1)] = alpha_j;
-    }
-    //}}}
+
     //{{{ com: eigendecompose
-    let eigen_decomp = tmat.symeig().unwrap();
+    let eigen_decomp = tmat.symeig().map_err(|error| RuleError::GenerationFailed {
+        family,
+        point_count: rule_point_count,
+        message: error.to_string(),
+    })?;
     //}}}
     //{{{ com: compute quadrature points and weights from eigenvalues and eigenvectors
     let qpoints: &Vec<f64> = &eigen_decomp.eigvals;
-    let mu0 = gauss_type.weight_integral();
     let qweights: Vec<f64> = eigen_decomp
         .eigvecs
         .row(0)
         .iter()
-        .map(|x| x.powi(2) * mu0)
+        .map(|x| x.powi(2) * weight_integral)
         .collect();
     let mut combined: Vec<(f64, f64)> = qpoints
         .iter()
         .cloned()
         .zip(qweights.iter().cloned())
         .collect();
-    combined.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    combined.sort_by(|a, b| a.0.total_cmp(&b.0));
     let (qpoints_final, qweights_final): (Vec<f64>, Vec<f64>) = combined.iter().cloned().unzip();
     //}}}
     //{{{ ret
-    (qpoints_final, qweights_final)
+    Ok((qpoints_final, qweights_final))
     //}}}
 }
 //..................................................................................................
@@ -467,8 +757,6 @@ fn legendre(
     n: usize,
     x: f64,
 ) -> f64 {
-    debug_assert!((-1.0..=1.0).contains(&x));
-
     let (mut leg_n, mut leg_1, mut leg_2) = (1.0f64, 1.0f64, 0.0f64);
     for i in 0..n {
         let ii = i as f64;
@@ -485,5 +773,35 @@ fn legendre(
 //-------------------------------------------------------------------------------------------------
 //{{{ mod: tests
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::{golub_welsch, legendre_recursion_coeffs, GaussFamily, GaussRule, RuleError};
+
+    #[test]
+    fn invalid_backend_output_is_a_generation_error() {
+        let error = GaussRule::from_points_weights(GaussFamily::Legendre, vec![0.0], Vec::new())
+            .unwrap_err();
+        assert_eq!(
+            error,
+            RuleError::GenerationFailed {
+                family: GaussFamily::Legendre,
+                point_count: 1,
+                message: "backend produced 1 points but 0 weights".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_eigendecomposition_size_is_a_generation_error() {
+        let error =
+            golub_welsch(GaussFamily::Legendre, 1, 0, 2.0, legendre_recursion_coeffs).unwrap_err();
+        assert_eq!(
+            error,
+            RuleError::GenerationFailed {
+                family: GaussFamily::Legendre,
+                point_count: 1,
+                message: "eigendecomposition matrix must be nonempty".to_owned(),
+            }
+        );
+    }
+}
 //}}}

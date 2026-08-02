@@ -9,80 +9,93 @@ sum
 
 The crate supports two rule families:
 
-- `GaussQuadType::Legendre` uses interior points and an \(n\)-point rule of
-  order \(2n-1\);
-- `GaussQuadType::Lobatto` includes both interval endpoints and an \(n\)-point
-  rule of order \(2n-3\).
+- `GaussFamily::Legendre` uses interior points, supports \(n \ge 1\), and an
+  \(n\)-point rule has polynomial exactness \(2n-1\);
+- `GaussFamily::Lobatto` includes both interval endpoints, supports \(n \ge 2\),
+  and an \(n\)-point rule has polynomial exactness \(2n-3\).
 
-The `GaussQuadType::nqp_from_order` and `order_from_nqp` methods convert between
-polynomial order and number of quadrature points.
+Construction uses the smallest point count whose exactness is at least the
+requested degree:
 
-## `GaussQuad`: one rule
+\[
+    n_\mathrm{Legendre} = \left\lfloor\frac{p}{2}\right\rfloor + 1,
+    \qquad
+    n_\mathrm{Lobatto} = \left\lfloor\frac{p}{2}\right\rfloor + 2.
+\]
 
-`GaussQuad::new(gauss_type, order)` constructs one rule. Its public fields are:
+For an even requested degree \(p\), the selected rule has actual exactness
+\(p+1\). `GaussRule::exactness` reports that actual value.
 
-- `gauss_type`: the selected family;
-- `nqp`: the number of quadrature points;
-- `points`: the \(x_i\) values;
-- `weights`: the corresponding \(w_i\) values.
+## `GaussRule`: one rule
 
-This example constructs the same kind of Legendre rule exercised by the test
-suite and uses its points and weights directly:
+Use `GaussRule::for_degree` to request polynomial exactness, or
+`GaussRule::with_point_count` to request an exact number of points. Both
+constructors return `Result` and support the same range as the degree-100
+cache.
 
 ```rust
-use topohedral_integrate::{GaussQuad, GaussQuadType};
+use topohedral_integrate::{GaussFamily, GaussRule, PolynomialDegree};
 
-let rule = GaussQuad::new(GaussQuadType::Legendre, 9);
-assert_eq!(rule.nqp, 5);
+let degree = PolynomialDegree::new(9)?;
+let rule = GaussRule::for_degree(GaussFamily::Legendre, degree)?;
+assert_eq!(rule.point_count().value(), 5);
+assert_eq!(rule.exactness().value(), 9);
 
 let integral: f64 = rule
-    .points
+    .points()
     .iter()
-    .zip(&rule.weights)
+    .zip(rule.weights())
     .map(|(&x, &w)| w * x.powi(8))
     .sum();
 
 assert!((integral - 2.0 / 9.0).abs() < 1e-12);
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-`GaussQuad` is a reference-interval rule. To map points and weights to arbitrary
-bounds, use a fixed quadrature rule rather than performing the transformation
-by hand.
+`GaussRule` is a reference-interval rule. Use a fixed quadrature rule to map it
+to arbitrary bounds.
 
-## `GuassQuadSet`: a family of rules
+## `GaussRuleSet`: a generated family
 
-`GuassQuadSet::new(gauss_type, max_order)` precomputes rules up to a requested
-order. The public type name is currently spelled `GuassQuadSet`.
-
-Use `gauss_quad_from_nqp` to select by point count or
-`gauss_quad_from_order` to select by polynomial order:
+`GaussRuleSet::through_degree` generates every supported point count through
+the rule needed for the requested maximum exactness. Lookups borrow the stored
+rules, so selecting a rule does not clone its point and weight vectors.
 
 ```rust
-use topohedral_integrate::{GaussQuadType, GuassQuadSet};
+use topohedral_integrate::{GaussFamily, GaussRuleSet, PointCount, PolynomialDegree};
 
-let rules = GuassQuadSet::new(GaussQuadType::Legendre, 90);
-let rule = rules.gauss_quad_from_nqp(37);
+let rules = GaussRuleSet::through_degree(
+    GaussFamily::Legendre,
+    PolynomialDegree::new(90)?,
+)?;
+let rule = rules.rule_by_point_count(PointCount::new(37)?)?;
+let same_rule = rules.rule_for_degree(PolynomialDegree::new(72)?)?;
 
-assert_eq!(rule.gauss_type, GaussQuadType::Legendre);
-assert_eq!(rule.nqp, 37);
-assert_eq!(rule.points.len(), rule.weights.len());
+assert_eq!(rule.family(), GaussFamily::Legendre);
+assert_eq!(rule.point_count().value(), 37);
+assert!(std::ptr::eq(rule, same_rule));
+assert_eq!(rules.iter().count(), rules.len());
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-This construction mirrors the Gaussian-rule tests, which compare selected
-Legendre and Lobatto point and weight arrays against reference data.
+Rule sets accept lookup by requested degree or point count and iterate in
+ascending point-count order. They do not support arbitrary insertion because
+that would break their single-family, generated-rule invariant.
 
 ## Shared cached sets
 
-`get_legendre_points()` and `get_lobatto_points()` return process-wide,
-lazily initialized rule sets. They are useful when callers need several rules
-without constructing a new `GuassQuadSet` each time:
+`legendre_rules()` and `lobatto_rules()` return borrowed, process-wide,
+lazily initialized rule sets through requested degree 100. Initialization
+errors are retained in the cache and returned deterministically on every call.
 
 ```rust
-use topohedral_integrate::get_lobatto_points;
+use topohedral_integrate::{lobatto_rules, PointCount};
 
-let rule = get_lobatto_points().gauss_quad_from_nqp(5);
-assert_eq!(rule.points.first(), Some(&-1.0));
-assert_eq!(rule.points.last(), Some(&1.0));
+let rules = lobatto_rules()?;
+let rule = rules.rule_by_point_count(PointCount::new(5)?)?;
+assert_eq!(rule.points().first(), Some(&-1.0));
+assert_eq!(rule.points().last(), Some(&1.0));
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 The fixed quadrature types use these cached sets internally.

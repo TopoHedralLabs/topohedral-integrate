@@ -1,47 +1,55 @@
 # User Guide
 
-The crate exposes its complete public API at the crate root. Import symbols
-such as `GaussQuad`, `FixedQuad1D`, and `adaptive_quad_2d` directly from
-`topohedral_integrate`; the internal `gauss`, `fixed`, and `adaptive` modules
-are not part of the public interface.
+The public API is flat: Gaussian rules, validated configuration values, fixed
+quadratures, and adaptive entry points are all available at the crate root.
+Dimensional types use explicit `1d` and `2d` suffixes.
 
-The API is divided into three areas:
+The API is divided into four areas:
+
+## Validated values
+
+[Validated values](validated-values.md) represent polynomial degrees, point
+counts, intervals, rectangles, tolerances, and refinement depths. Constructors
+reject non-finite or otherwise invalid input before numerical work begins.
 
 ## Gaussian rules
 
 [Gaussian rules](gaussian-rules.md) produce points and weights on the standard
-interval \([-1, 1]\). Use `GaussQuad` for one rule, or `GuassQuadSet` when
+interval \([-1, 1]\). Use `GaussRule` for one rule, or `GaussRuleSet` when
 several orders are needed. Both Gauss-Legendre and Gauss-Lobatto families are
-available through `GaussQuadType`.
+available through `GaussFamily`.
 
 ## Fixed quadrature
 
 [Fixed quadrature](fixed-quadrature.md) maps a Gaussian rule onto a 1D interval
-or 2D rectangle. `FixedQuad1D` and `FixedQuad2D` precompute their points and
-weights and can be reused for multiple functions.
+or 2D rectangle. The corresponding `Quadrature` types precompute typed nodes
+and can be reused for multiple functions.
 
 ## Adaptive quadrature
 
 [Adaptive quadrature](adaptive-quadrature.md) repeatedly subdivides intervals
-or rectangles whose low- and high-order estimates differ by more than the
-requested tolerance. The `adaptive_quad_1d` and `adaptive_quad_2d` functions
-return both the integral and diagnostic information.
+or rectangles, refining the largest-error region until the global
+absolute-plus-relative tolerance is met. `AdaptiveQuadrature1d` and
+`AdaptiveQuadrature2d` return a shared `AdaptiveResult` with the high-order
+integral and diagnostic information. The `adaptive_quad_1d` and
+`adaptive_quad_2d` helpers provide the corresponding one-shot interface.
 
-## Options validation
+## Structured validation
 
-Options are validated by the public operation that consumes or uses them.
-`FixedQuad1D::new`, `FixedQuad2D::new`, the one-shot fixed helpers, and the
-adaptive integration functions return `Result` and report invalid options as
-an `OptionsError`:
+Fixed quadrature starts from validated domain and Gaussian-rule values. Its
+builder validates subdivisions before constructing the reusable quadrature:
 
 ```rust
-use topohedral_integrate::{FixedQuad1D, FixedQuadOpts1D, GaussQuadType};
+use topohedral_integrate::{
+    FixedQuadrature1d, GaussFamily, GaussRule, Interval, PolynomialDegree,
+};
 
-let result = FixedQuad1D::new(FixedQuadOpts1D {
-    gauss_type: GaussQuadType::Legendre,
-    order: 9,
-    bounds: (-1.0, 1.0),
-    subdiv: None,
-});
-assert!(result.is_ok());
+let domain = Interval::new(-1.0, 1.0).unwrap();
+let degree = PolynomialDegree::new(9).unwrap();
+let rule = GaussRule::for_degree(GaussFamily::Legendre, degree).unwrap();
+let quadrature = FixedQuadrature1d::builder(domain, rule)
+    .subdivisions([0.0])
+    .unwrap()
+    .build();
+assert_eq!(quadrature.subdivision_points(), &[0.0]);
 ```

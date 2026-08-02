@@ -4,9 +4,9 @@
 adaptive numerical integration in one and two dimensions.
 
 The public API is flat: all user-facing types and functions are imported
-directly from `topohedral_integrate`. Dimension-specific names end in `1D` or
-`2D`, for example `FixedQuad1D`, `FixedQuad2D`, `adaptive_quad_1d`, and
-`adaptive_quad_2d`.
+directly from `topohedral_integrate`. Dimension-specific names end in `1d` or
+`2d`, for example `FixedQuadrature1d`, `FixedQuadrature2d`,
+`AdaptiveQuadrature1d`, and `AdaptiveQuadrature2d`.
 
 Use the [getting-started guide](getting-started.md) for a first integral, or go
 directly to one of the user-guide areas:

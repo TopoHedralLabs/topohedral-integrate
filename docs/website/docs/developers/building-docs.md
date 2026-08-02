@@ -6,7 +6,7 @@ serves the result.
 
 ```bash
 ./build-docs.sh
-./build-docs.sh v0.0.0
+./build-docs.sh v0.1.0
 ```
 
 The site is served at `http://localhost:8000`. The script uses a temporary git

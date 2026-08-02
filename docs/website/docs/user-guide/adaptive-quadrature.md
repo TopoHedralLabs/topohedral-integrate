@@ -1,115 +1,148 @@
 # Adaptive Quadrature
 
-Adaptive quadrature compares low- and high-order fixed rules on each current
-subdomain. A subdomain is split when the two estimates differ by more than
-`tol`. This concentrates evaluations around oscillation, singular behavior, or
-loss of smoothness.
+Adaptive quadrature compares low- and high-order Gaussian rules on each current
+region. It returns the high-order estimate and uses the absolute low/high
+difference as that region's error estimate. The algorithm repeatedly refines
+the splittable region with the largest error until the global condition
 
-The entry points are the functions `adaptive_quad_1d` and
-`adaptive_quad_2d`. Each takes a function by reference and a dimension-specific
-options struct by value. They construct the low- and high-order fixed rules
-internally from the contained fixed-rule options.
+$$
+E \leq \epsilon_{abs} + \epsilon_{rel}|I|
+$$
+
+is satisfied.
 
 ## One-dimensional integration
 
-`AdaptiveQuadOpts1D` contains:
-
-- `bounds`: `(lower, upper)` for the complete integral;
-- `fixed_rule_low` and `fixed_rule_high`: `FixedQuadOpts1D` configurations,
-  with the low rule having a lower order than the high rule;
-- `tol`: the accepted low/high difference on each final subinterval;
-- `max_depth`: the subdivision-depth configuration;
-- `init_subdiv`: optional known breakpoints inside `bounds`.
-
-The following is based on the piecewise-linear integration test. Supplying the
-known corner at \(x=-1\) allows the algorithm to start with smooth pieces:
+Construct an `AdaptiveQuadrature1d` from a validated interval, low and high
+Gaussian rules, and a `Tolerance`:
 
 ```rust
 use topohedral_integrate::{
-    adaptive_quad_1d, AdaptiveQuadOpts1D, FixedQuadOpts1D, GaussQuadType,
+    AdaptiveQuadrature1d, GaussFamily, GaussRule, Interval, PolynomialDegree,
+    RefinementDepth, Tolerance,
 };
 
-let opts = AdaptiveQuadOpts1D {
-    bounds: (-3.0, 4.0),
-    fixed_rule_low: FixedQuadOpts1D {
-        gauss_type: GaussQuadType::Legendre,
-        order: 10,
-        bounds: (-1.0, 1.0),
-        subdiv: None,
-    },
-    fixed_rule_high: FixedQuadOpts1D {
-        gauss_type: GaussQuadType::Legendre,
-        order: 30,
-        bounds: (-1.0, 1.0),
-        subdiv: None,
-    },
-    tol: 1e-5,
-    max_depth: 1000,
-    init_subdiv: Some(vec![-1.0]),
-};
-let result = adaptive_quad_1d(&|x: f64| (x + 1.0).abs(), opts)
-    .expect("valid adaptive options");
+let domain = Interval::new(-3.0, 4.0).unwrap();
+let low = GaussRule::for_degree(
+    GaussFamily::Legendre,
+    PolynomialDegree::new(5).unwrap(),
+)
+.unwrap();
+let high = GaussRule::for_degree(
+    GaussFamily::Legendre,
+    PolynomialDegree::new(11).unwrap(),
+)
+.unwrap();
+let tolerance = Tolerance::new(1e-10, 1e-10).unwrap();
+let quadrature = AdaptiveQuadrature1d::builder(domain, low, high, tolerance)
+    .max_depth(RefinementDepth::new(20))
+    .subdivisions([-1.0])
+    .unwrap()
+    .build()
+    .unwrap();
 
-assert!((result.integral - 29.0 / 2.0).abs() < 1e-10);
-assert!(result.error_estimate < result.num_subdiv as f64 * 1e-5);
+let result = quadrature.integrate(|x| (x + 1.0).abs()).unwrap();
+assert!((result.integral() - 29.0 / 2.0).abs() < 1e-10);
+assert!(
+    result.error_estimate()
+        <= tolerance.absolute_value()
+            + tolerance.relative_value() * result.integral().abs()
+);
 ```
 
-The low and high fixed rules are conventionally built on \([-1, 1]\); the
-adaptive routine remaps them to each subinterval.
+Initial subdivisions describe known breakpoints and start at depth zero. The
+configured maximum depth is counted independently from each initial region. A
+depth of zero evaluates those regions once without permitting refinement.
 
 ## Two-dimensional integration
 
-`AdaptiveQuadOpts2D` uses the same design with tensor-product fixed rules:
-
-- `bounds`: `(u_min, u_max, v_min, v_max)`;
-- `fixed_rule_low` and `fixed_rule_high`: `FixedQuadOpts2D` configurations;
-- `tol`: the accepted low/high difference on each final rectangle;
-- `max_depth`: `(u_depth, v_depth)`;
-- `init_subdiv`: optional `(u_breakpoints, v_breakpoints)`.
+`AdaptiveQuadrature2d` accepts tensor-product rules and independent maximum
+depths for the two axes:
 
 ```rust
 use topohedral_integrate::{
-    adaptive_quad_2d, AdaptiveQuadOpts2D, FixedQuadOpts2D, GaussQuadType,
+    AdaptiveQuadrature2d, AxisDepths, GaussFamily, GaussRule, PolynomialDegree,
+    Rectangle, TensorRule2d, Tolerance,
 };
 
-let opts = AdaptiveQuadOpts2D {
-    bounds: (0.0, 1.0, 0.0, 1.0),
-    fixed_rule_low: FixedQuadOpts2D {
-        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
-        order: (3, 3),
-        bounds: (-1.0, 1.0, -1.0, 1.0),
-        subdiv: None,
-    },
-    fixed_rule_high: FixedQuadOpts2D {
-        gauss_type: (GaussQuadType::Legendre, GaussQuadType::Legendre),
-        order: (7, 7),
-        bounds: (-1.0, 1.0, -1.0, 1.0),
-        subdiv: None,
-    },
-    tol: 1e-8,
-    max_depth: (10, 10),
-    init_subdiv: None,
-};
-let result = adaptive_quad_2d(&|x: f64, y: f64| x.powi(2) + y.powi(2), opts)
-    .expect("valid adaptive options");
-assert!((result.integral - 2.0 / 3.0).abs() < 1e-12);
+let domain = Rectangle::from_bounds(0.0, 1.0, 0.0, 1.0).unwrap();
+let low = GaussRule::for_degree(
+    GaussFamily::Legendre,
+    PolynomialDegree::new(3).unwrap(),
+)
+.unwrap();
+let high = GaussRule::for_degree(
+    GaussFamily::Legendre,
+    PolynomialDegree::new(7).unwrap(),
+)
+.unwrap();
+let quadrature = AdaptiveQuadrature2d::builder(
+    domain,
+    TensorRule2d::new(low.clone(), low),
+    TensorRule2d::new(high.clone(), high),
+    Tolerance::absolute(1e-10).unwrap(),
+)
+.max_depth(AxisDepths::from_values(10, 10))
+.build()
+.unwrap();
+
+let result = quadrature.integrate(|u, v| u * u + v * v).unwrap();
+assert!((result.integral() - 2.0 / 3.0).abs() < 1e-12);
 ```
 
-When a discontinuity or corner location is known in advance, provide it through
-`init_subdiv`. For example, the test function
-`(x + 1.0).abs() * (y - 2.0).abs()` uses
-`Some((vec![-1.0], vec![2.0]))`.
+When both axes of the selected region remain below their depth limits, the
+region is split into four. After one axis reaches its limit, refinement
+continues by splitting only the other axis.
 
-## Results and error estimates
+## One-shot helpers
 
-On success, `adaptive_quad_1d` returns `AdaptiveQuadResult1D`, and
-`adaptive_quad_2d` returns `AdaptiveQuadResult2D`. Both expose:
+`adaptive_quad_1d` and `adaptive_quad_2d` are thin wrappers for configurations
+that will be used once. Pass the configured builder without calling `build`:
 
-- `integral`: the sum of the accepted low-order estimates;
-- `error_estimate`: the sum of the low/high differences;
-- `num_subdiv`: the number of final subdomains;
-- `num_fn_eval`: the number of function evaluations.
+```rust
+use topohedral_integrate::{
+    adaptive_quad_1d, AdaptiveQuadrature1d, GaussFamily, GaussRule, Interval,
+    PolynomialDegree, Tolerance,
+};
 
-The tolerance is applied to each final subdomain rather than directly to the
-sum. Consequently, a useful conservative bound in the test suite is
-`num_subdiv as f64 * tol`.
+let low = GaussRule::for_degree(
+    GaussFamily::Legendre,
+    PolynomialDegree::new(3).unwrap(),
+)
+.unwrap();
+let high = GaussRule::for_degree(
+    GaussFamily::Legendre,
+    PolynomialDegree::new(7).unwrap(),
+)
+.unwrap();
+let builder = AdaptiveQuadrature1d::builder(
+    Interval::new(-1.0, 1.0).unwrap(),
+    low,
+    high,
+    Tolerance::absolute(1e-10).unwrap(),
+);
+let result = adaptive_quad_1d(|x| x * x, builder).unwrap();
+assert!((result.integral() - 2.0 / 3.0).abs() < 1e-12);
+```
+
+Building an `AdaptiveQuadrature1d` or `AdaptiveQuadrature2d` remains preferable
+when its validated rules and configuration will be reused.
+
+## Results and convergence failures
+
+Both dimensions return `AdaptiveResult`, whose accessors provide:
+
+- `integral()`: the sum of terminal high-order estimates;
+- `error_estimate()`: the sum of terminal low/high differences;
+- `terminal_region_count()`: the number of final subdomains;
+- `evaluation_count()`: the exact number of integrand evaluations.
+
+If the global tolerance cannot be met because every applicable depth is
+exhausted, integration returns
+`IntegrationError::MaxDepthReached { partial_result }`. The partial result has
+the same four diagnostics and is the best high-order estimate available.
+
+If an interval is so narrow that its floating-point midpoint equals an
+endpoint, integration returns `NonProgressingInterval` or
+`NonProgressingRectangle`. NaN and infinity returned by the integrand remain
+`NonFiniteIntegrand` errors.

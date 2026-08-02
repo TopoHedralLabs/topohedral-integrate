@@ -6,7 +6,7 @@
 //! - The function `fixed_quad`, which can be used when one merely wants to compute the
 //!   integral of a function over a given interval once and therefore does not wish to store the
 //!   quadrature rule itself.
-//! - The struct `FixedQuad`, which will store the quadrature rule and can be re-used for
+//! - A reusable quadrature, which stores the mapped rule for use with multiple
 //!   different functions.
 //--------------------------------------------------------------------------------------------------
 
@@ -18,5 +18,5 @@
 //}}}
 //--------------------------------------------------------------------------------------------------
 
-pub mod d1;
-pub mod d2;
+pub(crate) mod d1;
+pub(crate) mod d2;

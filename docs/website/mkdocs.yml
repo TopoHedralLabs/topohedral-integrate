@@ -29,8 +29,10 @@ extra:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Migrating to 0.1.0: migration-0.1.md
   - User Guide:
       - Overview: user-guide/index.md
+      - Validated Values: user-guide/validated-values.md
       - Gaussian Rules: user-guide/gaussian-rules.md
       - Fixed Quadrature: user-guide/fixed-quadrature.md
       - Adaptive Quadrature: user-guide/adaptive-quadrature.md
