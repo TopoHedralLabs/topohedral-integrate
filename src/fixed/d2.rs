@@ -2,7 +2,7 @@
 
 //{{{ crate imports
 use super::d1;
-use crate::config::{validate_subdivisions, ConfigError, Rectangle};
+use crate::config::{ConfigError, Rectangle, validate_subdivisions};
 use crate::gauss::GaussRule;
 use crate::integration::{EvaluationPoint, IntegrationError};
 //}}}

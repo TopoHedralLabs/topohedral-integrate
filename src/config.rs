@@ -812,7 +812,7 @@ where
 //{{{ mod: tests
 #[cfg(test)]
 mod tests {
-    use super::{validate_subdivisions, ConfigIssue, Interval};
+    use super::{ConfigIssue, Interval, validate_subdivisions};
 
     #[test]
     fn subdivision_validation_accepts_any_iterator_and_normalizes_empty_input() {

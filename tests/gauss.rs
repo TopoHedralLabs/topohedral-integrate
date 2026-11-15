@@ -2,8 +2,8 @@ use approx::{assert_abs_diff_eq, assert_relative_eq};
 use serde::Deserialize;
 use std::{fs, ptr};
 use topohedral_integrate::{
-    legendre_rules, lobatto_rules, ConfigIssue, GaussFamily, GaussRule, GaussRuleSet, PointCount,
-    PolynomialDegree, RuleError,
+    ConfigIssue, GaussFamily, GaussRule, GaussRuleSet, PointCount, PolynomialDegree, RuleError,
+    legendre_rules, lobatto_rules,
 };
 
 const MAX_REL: f64 = 1e-10;
@@ -138,10 +138,11 @@ fn assert_rule_structure(rule: &GaussRule) {
     assert_eq!(rule.points().len(), rule.point_count().value());
     assert_eq!(rule.weights().len(), rule.point_count().value());
     assert!(rule.points().iter().all(|point| point.is_finite()));
-    assert!(rule
-        .weights()
-        .iter()
-        .all(|weight| weight.is_finite() && *weight > 0.0));
+    assert!(
+        rule.weights()
+            .iter()
+            .all(|weight| weight.is_finite() && *weight > 0.0)
+    );
     assert!(rule.points().windows(2).all(|points| points[0] < points[1]));
     assert_abs_diff_eq!(rule.weights().iter().sum::<f64>(), 2.0, epsilon = MAX_ABS);
 

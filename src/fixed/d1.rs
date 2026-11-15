@@ -1,7 +1,7 @@
 //! Fixed quadrature for one-dimensional real-valued functions.
 
 //{{{ crate imports
-use crate::config::{validate_subdivisions, Interval};
+use crate::config::{Interval, validate_subdivisions};
 use crate::gauss::GaussRule;
 use crate::integration::{EvaluationPoint, IntegrationError};
 //}}}
