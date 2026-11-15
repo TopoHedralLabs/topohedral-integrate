@@ -1,2 +1,0 @@
-createSrcSidebar('[["topohedral_integrate",["",[["adaptive",[],["d1.rs","d2.rs","mod.rs"]],["fixed",[],["d1.rs","d2.rs","mod.rs"]]],["common.rs","config.rs","gauss.rs","integration.rs","lib.rs"]]]]');
-//{"start":19,"fragment_lengths":[177]}
