@@ -1,8 +1,8 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use std::{hint::black_box, time::Duration};
 use topohedral_integrate::{
-    legendre_rules, FixedQuadrature1d, FixedQuadrature2d, Interval, PolynomialDegree, Rectangle,
-    TensorRule2d,
+    FixedQuadrature1d, FixedQuadrature2d, Interval, PolynomialDegree, Rectangle, TensorRule2d,
+    legendre_rules,
 };
 
 fn subdivisions() -> Vec<f64> {

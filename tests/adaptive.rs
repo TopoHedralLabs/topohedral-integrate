@@ -1,8 +1,8 @@
 use approx::assert_abs_diff_eq;
 use topohedral_integrate::{
-    adaptive_quad_1d, adaptive_quad_2d, AdaptiveQuadrature1d, AdaptiveQuadrature2d, AxisDepths,
-    ConfigIssue, EvaluationPoint, GaussFamily, GaussRule, IntegrationError, Interval, OptionsError,
-    PolynomialDegree, Rectangle, RefinementDepth, RuleAxis, TensorRule2d, Tolerance,
+    AdaptiveQuadrature1d, AdaptiveQuadrature2d, AxisDepths, ConfigIssue, EvaluationPoint,
+    GaussFamily, GaussRule, IntegrationError, Interval, OptionsError, PolynomialDegree, Rectangle,
+    RefinementDepth, RuleAxis, TensorRule2d, Tolerance, adaptive_quad_1d, adaptive_quad_2d,
 };
 
 fn rule(degree: usize) -> GaussRule {

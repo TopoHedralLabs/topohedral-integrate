@@ -1,7 +1,7 @@
 //! Adaptive tensor-product quadrature for two-dimensional real-valued functions.
 
 //{{{ crate imports
-use crate::config::{validate_subdivisions, ConfigError, ConfigIssue, RuleAxis};
+use crate::config::{ConfigError, ConfigIssue, RuleAxis, validate_subdivisions};
 use crate::fixed::d2::{Quadrature as FixedQuadrature, TensorRule};
 use crate::{
     AdaptiveResult, AxisDepths, IntegrationError, Interval, OptionsError, Rectangle, Tolerance,

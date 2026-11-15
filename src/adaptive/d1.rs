@@ -1,7 +1,7 @@
 //! Adaptive quadrature for one-dimensional real-valued functions.
 
 //{{{ crate imports
-use crate::config::{validate_subdivisions, ConfigError, ConfigIssue, RuleAxis};
+use crate::config::{ConfigError, ConfigIssue, RuleAxis, validate_subdivisions};
 use crate::fixed::d1::Quadrature as FixedQuadrature;
 use crate::{
     AdaptiveResult, GaussRule, IntegrationError, Interval, OptionsError, RefinementDepth, Tolerance,

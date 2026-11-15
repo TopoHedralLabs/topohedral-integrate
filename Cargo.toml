@@ -26,8 +26,8 @@ trace = [
 [dependencies]
 serde = { version = "1.0.203", features = ["derive"], optional = true }
 thiserror = "2.0.17"
-topohedral-tracing = { version = "0.3.0", registry = "cloudsmith", default-features = false, optional = true }
-topohedral-linalg = { version = "0.0.1", registry = "cloudsmith", default-features = false }
+topohedral-tracing = { version = "0.3.1", registry = "cloudsmith", default-features = false, optional = true }
+topohedral-linalg = { version = "0.0.2", registry = "cloudsmith", default-features = false }
 
 
 [dev-dependencies]

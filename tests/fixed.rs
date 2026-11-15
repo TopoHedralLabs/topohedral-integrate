@@ -4,8 +4,8 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::fs;
 use topohedral_integrate::{
-    fixed_quad_1d, fixed_quad_2d, FixedQuadrature1d, FixedQuadrature2d, GaussFamily, GaussRule,
-    Interval, PolynomialDegree, Rectangle, TensorRule2d,
+    FixedQuadrature1d, FixedQuadrature2d, GaussFamily, GaussRule, Interval, PolynomialDegree,
+    Rectangle, TensorRule2d, fixed_quad_1d, fixed_quad_2d,
 };
 
 const MAX_RELATIVE_ERROR: f64 = 1e-14;

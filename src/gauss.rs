@@ -774,7 +774,7 @@ fn legendre(
 //{{{ mod: tests
 #[cfg(test)]
 mod tests {
-    use super::{golub_welsch, legendre_recursion_coeffs, GaussFamily, GaussRule, RuleError};
+    use super::{GaussFamily, GaussRule, RuleError, golub_welsch, legendre_recursion_coeffs};
 
     #[test]
     fn invalid_backend_output_is_a_generation_error() {
