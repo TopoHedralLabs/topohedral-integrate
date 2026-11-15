@@ -1,8 +1,8 @@
 [package]
 name = "topohedral-integrate"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["John Ferguson <JAFerguson952@gmail.com>"]
-edition = "2021"
+edition = "2024"
 rust-version = "1.85"
 repository = "https://github.com/TopoHedralLabs/topohedral-integrate"
 homepage = "https://topohedrallabs.github.io/topohedral-integrate/"
